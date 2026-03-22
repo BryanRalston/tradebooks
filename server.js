@@ -45,8 +45,6 @@ const sessionSecret = (() => {
 })();
 
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
-app.use('/receipts', express.static(path.join(__dirname, 'uploads', 'receipts')));
 
 app.use(session({
   store: new SQLiteStore(db),
@@ -61,6 +59,16 @@ app.use(session({
     maxAge: 7 * 24 * 60 * 60 * 1000  // 7 days
   }
 }));
+
+// Intercept root path BEFORE static middleware to enforce setup/login
+app.get('/', (req, res, next) => {
+  if (!isPasswordSet(db)) return res.redirect('/setup.html');
+  if (!req.session?.authenticated) return res.redirect('/login.html');
+  next();
+});
+
+app.use(express.static(path.join(__dirname, 'public')));
+app.use('/receipts', express.static(path.join(__dirname, 'uploads', 'receipts')));
 
 // ---------------------------------------------------------------------------
 // Rate limiting
@@ -703,8 +711,9 @@ app.get('/api/expenses/:id', async (req, res) => {
 
 app.post('/api/expenses', async (req, res) => {
   try {
-    const { date, amount, vendor, category_id, job_id, payment_method, notes } = req.body;
-    const vErrors = validate(req.body, {
+    const { date, amount, vendor, category_id, job_id, notes } = req.body;
+    const payment_method = (req.body.payment_method || '').toLowerCase();
+    const vErrors = validate({ ...req.body, payment_method }, {
       date: { required: true, date: true },
       amount: { required: true, type: 'number', min: 0.01 },
       vendor: { type: 'string', maxLength: 200 },
@@ -731,7 +740,8 @@ app.put('/api/expenses/:id', async (req, res) => {
     const existing = await get('SELECT * FROM expenses WHERE id = ?', [req.params.id]);
     if (!existing) return res.status(404).json({ error: 'Expense not found' });
 
-    const { date, amount, vendor, category_id, job_id, payment_method, notes } = req.body;
+    const { date, amount, vendor, category_id, job_id, notes } = req.body;
+    const payment_method = req.body.payment_method !== undefined ? req.body.payment_method.toLowerCase() : undefined;
     await run(
       `UPDATE expenses SET date = ?, amount = ?, vendor = ?, category_id = ?, job_id = ?,
        payment_method = ?, notes = ? WHERE id = ?`,
@@ -897,8 +907,9 @@ app.get('/api/income/:id', async (req, res) => {
 
 app.post('/api/income', async (req, res) => {
   try {
-    const { date, amount, description, client_id, job_id, category_id, payment_method, invoice_id } = req.body;
-    const vErrors = validate(req.body, {
+    const { date, amount, description, client_id, job_id, category_id, invoice_id } = req.body;
+    const payment_method = (req.body.payment_method || '').toLowerCase();
+    const vErrors = validate({ ...req.body, payment_method }, {
       date: { required: true, date: true },
       amount: { required: true, type: 'number', min: 0.01 },
       description: { type: 'string', maxLength: 500 },
@@ -927,7 +938,8 @@ app.put('/api/income/:id', async (req, res) => {
     const existing = await get('SELECT * FROM income WHERE id = ?', [req.params.id]);
     if (!existing) return res.status(404).json({ error: 'Income record not found' });
 
-    const { date, amount, description, client_id, job_id, category_id, payment_method, invoice_id } = req.body;
+    const { date, amount, description, client_id, job_id, category_id, invoice_id } = req.body;
+    const payment_method = req.body.payment_method !== undefined ? req.body.payment_method.toLowerCase() : undefined;
     await run(
       `UPDATE income SET date = ?, amount = ?, description = ?, client_id = ?, job_id = ?,
        category_id = ?, payment_method = ?, invoice_id = ? WHERE id = ?`,

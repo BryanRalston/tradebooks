@@ -1524,8 +1524,8 @@ const InvoiceForm = (() => {
 
   async function saveInvoice(id, isEdit, status) {
     const payload = {
-      client_id:  document.getElementById('inv-client').value || null,
-      job_id:     document.getElementById('inv-job').value || null,
+      client_id:  parseInt(document.getElementById('inv-client').value) || null,
+      job_id:     parseInt(document.getElementById('inv-job').value) || null,
       issue_date: document.getElementById('inv-issue').value || Utils.today(),
       due_date:   document.getElementById('inv-due').value || null,
       tax_rate:   parseFloat(document.getElementById('inv-tax').value) || 0,
@@ -1624,14 +1624,17 @@ const Reports = (() => {
     results.innerHTML = loadingHtml();
 
     let url;
+    // Map frontend keys to server route names
+    const routeMap = { 'profit-loss': 'pnl', 'transaction-register': 'transactions' };
+    const routeKey = routeMap[activeReport] || activeReport;
     const isTax = activeReport === 'tax-summary';
     if (isTax) {
       const year = document.getElementById('report-year').value;
-      url = `/api/reports/${activeReport}?year=${year}`;
+      url = `/api/reports/${routeKey}?year=${year}`;
     } else {
       const from = document.getElementById('report-from').value;
       const to   = document.getElementById('report-to').value;
-      url = `/api/reports/${activeReport}?from=${from}&to=${to}`;
+      url = `/api/reports/${routeKey}?from=${from}&to=${to}`;
     }
 
     const data = await API.get(url);
@@ -1641,8 +1644,10 @@ const Reports = (() => {
     html += renderReportTable(activeReport, data);
     html += '</div><div class="form-actions">';
     // Export buttons
-    const csvUrl = url + '&format=csv';
-    html += `<a href="${csvUrl}" class="btn btn-secondary" download>Export CSV</a>`;
+    const csvBase = isTax
+      ? `/api/reports/${routeKey}/csv?year=${document.getElementById('report-year').value}`
+      : `/api/reports/${routeKey}/csv?from=${document.getElementById('report-from').value}&to=${document.getElementById('report-to').value}`;
+    html += `<a href="${csvBase}" class="btn btn-secondary" download>Export CSV</a>`;
     html += '</div></div>';
 
     results.innerHTML = html;
@@ -1657,15 +1662,15 @@ const Reports = (() => {
       return `<table class="report-table">
         <thead><tr><th>Category</th><th class="text-right">Amount</th></tr></thead>
         <tbody>
-          <tr class="row-income"><td><strong>Total Income</strong></td><td class="text-right income">${Utils.formatCurrency(d.total_income || 0)}</td></tr>
-          ${(d.income_categories || rows.filter(r => r.type === 'income')).map(c =>
+          <tr class="row-income"><td><strong>Total Income</strong></td><td class="text-right income">${Utils.formatCurrency(d.totalIncome || d.total_income || 0)}</td></tr>
+          ${(d.income || d.income_categories || rows.filter(r => r.type === 'income')).map(c =>
             `<tr><td>&nbsp;&nbsp;${Utils.escapeHtml(c.name || c.category)}</td><td class="text-right">${Utils.formatCurrency(c.total || c.amount)}</td></tr>`
           ).join('')}
-          <tr class="row-expense"><td><strong>Total Expenses</strong></td><td class="text-right expense">${Utils.formatCurrency(d.total_expenses || 0)}</td></tr>
-          ${(d.expense_categories || rows.filter(r => r.type === 'expense')).map(c =>
+          <tr class="row-expense"><td><strong>Total Expenses</strong></td><td class="text-right expense">${Utils.formatCurrency(d.totalExpenses || d.total_expenses || 0)}</td></tr>
+          ${(d.expenses || d.expense_categories || rows.filter(r => r.type === 'expense')).map(c =>
             `<tr><td>&nbsp;&nbsp;${Utils.escapeHtml(c.name || c.category)}</td><td class="text-right">${Utils.formatCurrency(c.total || c.amount)}</td></tr>`
           ).join('')}
-          <tr class="row-total"><td><strong>Net Profit</strong></td><td class="text-right ${(d.net_profit || 0) >= 0 ? 'income' : 'expense'}">${Utils.formatCurrency(d.net_profit || 0)}</td></tr>
+          <tr class="row-total"><td><strong>Net Profit</strong></td><td class="text-right ${(d.netProfit || d.net_profit || 0) >= 0 ? 'income' : 'expense'}">${Utils.formatCurrency(d.netProfit || d.net_profit || 0)}</td></tr>
         </tbody>
       </table>`;
     }
@@ -1694,15 +1699,19 @@ const Reports = (() => {
 
     if (key === 'tax-summary') {
       const d = Array.isArray(data) ? {} : data;
+      const grossIncome = d.income?.total || d.gross_income || 0;
+      const deductions = d.scheduleCLines || d.expenses?.byLine || d.deductions || rows;
+      const totalDeductions = d.expenses?.total || d.total_deductions || 0;
+      const netProfit = d.netProfit || d.net_profit || 0;
       return `<table class="report-table">
         <thead><tr><th>Category</th><th class="text-right">Amount</th><th>Schedule C Line</th></tr></thead>
         <tbody>
-          <tr class="row-income"><td><strong>Gross Income</strong></td><td class="text-right">${Utils.formatCurrency(d.gross_income || 0)}</td><td>Line 1</td></tr>
-          ${(d.deductions || rows).map(r =>
-            `<tr><td>${Utils.escapeHtml(r.name || r.category)}</td><td class="text-right">${Utils.formatCurrency(r.total || r.amount)}</td><td>${Utils.escapeHtml(r.schedule_c_line || r.line || '')}</td></tr>`
+          <tr class="row-income"><td><strong>Gross Income</strong></td><td class="text-right">${Utils.formatCurrency(grossIncome)}</td><td>Line 1</td></tr>
+          ${deductions.map(r =>
+            `<tr><td>${Utils.escapeHtml(r.description || r.name || r.category)}</td><td class="text-right">${Utils.formatCurrency(r.amount || r.total)}</td><td>${Utils.escapeHtml(r.line || r.schedule_c_line || '')}</td></tr>`
           ).join('')}
-          <tr class="row-total"><td><strong>Total Deductions</strong></td><td class="text-right">${Utils.formatCurrency(d.total_deductions || 0)}</td><td></td></tr>
-          <tr class="row-total"><td><strong>Net Profit</strong></td><td class="text-right">${Utils.formatCurrency(d.net_profit || 0)}</td><td>Line 31</td></tr>
+          <tr class="row-total"><td><strong>Total Deductions</strong></td><td class="text-right">${Utils.formatCurrency(totalDeductions)}</td><td></td></tr>
+          <tr class="row-total"><td><strong>Net Profit</strong></td><td class="text-right">${Utils.formatCurrency(netProfit)}</td><td>Line 31</td></tr>
         </tbody>
       </table>`;
     }
