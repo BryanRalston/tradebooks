@@ -1,0 +1,22 @@
+{
+  "name": "tradebooks",
+  "version": "1.0.0",
+  "description": "Simple bookkeeping for contractors — expenses, income, jobs, invoices, tax reports",
+  "private": true,
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "seed": "node seed.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "better-sqlite3": "^11.0.0",
+    "express": "^4.18.0",
+    "express-rate-limit": "^8.3.1",
+    "express-session": "^1.19.0",
+    "helmet": "^8.1.0",
+    "multer": "^1.4.5-lts.1",
+    "pdfkit": "^0.15.2",
+    "uuid": "^9.0.0"
+  }
+}

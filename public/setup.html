@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta http-equiv="X-Frame-Options" content="DENY">
+  <title>Setup — TradeBooks</title>
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📒</text></svg>">
+  <style>
+    body {
+      background: var(--bg-page);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 1rem;
+    }
+
+    .setup-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-lg);
+      padding: 2.5rem 2rem;
+      width: 100%;
+      max-width: 440px;
+    }
+
+    .setup-brand {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.75rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .setup-brand svg {
+      color: var(--brand);
+    }
+
+    .setup-brand h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin: 0;
+    }
+
+    .setup-subtitle {
+      text-align: center;
+      color: var(--text-secondary);
+      font-size: 0.9375rem;
+      margin: 0.5rem 0 2rem 0;
+    }
+
+    .setup-form {
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .setup-form label {
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      margin-bottom: 0.25rem;
+      display: block;
+    }
+
+    .setup-form input[type="password"] {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      font-size: 1rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background: var(--bg-input);
+      color: var(--text-primary);
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .setup-form input[type="password"]:focus {
+      border-color: var(--border-focus);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+
+    .setup-btn {
+      width: 100%;
+      padding: 0.75rem;
+      font-size: 1rem;
+      font-weight: 600;
+      color: #fff;
+      background: var(--brand);
+      border: none;
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .setup-btn:hover {
+      background: var(--brand-dark);
+    }
+
+    .setup-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .setup-requirements {
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+      margin: -0.5rem 0 0 0;
+    }
+
+    .setup-error {
+      display: none;
+      background: var(--red-light);
+      color: var(--red);
+      padding: 0.75rem 1rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.875rem;
+      text-align: center;
+    }
+
+    .setup-error.visible {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div class="setup-card">
+    <div class="setup-brand">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+        <line x1="8" y1="7" x2="16" y2="7"/>
+        <line x1="8" y1="11" x2="14" y2="11"/>
+      </svg>
+      <h1>Welcome to TradeBooks</h1>
+    </div>
+    <p class="setup-subtitle">Create a password to protect your financial data.</p>
+
+    <div class="setup-error" id="setup-error"></div>
+
+    <form class="setup-form" id="setup-form">
+      <div>
+        <label for="password">Password</label>
+        <input type="password" id="password" name="password" autocomplete="new-password" required autofocus>
+        <p class="setup-requirements">Minimum 8 characters</p>
+      </div>
+      <div>
+        <label for="confirm">Confirm Password</label>
+        <input type="password" id="confirm" name="confirm" autocomplete="new-password" required>
+      </div>
+      <button type="submit" class="setup-btn" id="setup-btn">Set Password</button>
+    </form>
+  </div>
+
+  <script>
+    const form = document.getElementById('setup-form');
+    const errorEl = document.getElementById('setup-error');
+    const btn = document.getElementById('setup-btn');
+
+    function showError(msg) {
+      errorEl.textContent = msg;
+      errorEl.classList.add('visible');
+    }
+
+    function hideError() {
+      errorEl.classList.remove('visible');
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      hideError();
+
+      const password = document.getElementById('password').value;
+      const confirm = document.getElementById('confirm').value;
+
+      if (password.length < 8) {
+        showError('Password must be at least 8 characters.');
+        return;
+      }
+
+      if (password !== confirm) {
+        showError('Passwords do not match.');
+        document.getElementById('confirm').select();
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Setting up...';
+
+      try {
+        const res = await fetch('/api/auth/setup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password })
+        });
+
+        if (res.ok) {
+          window.location.href = '/';
+        } else {
+          const data = await res.json().catch(() => ({}));
+          showError(data.error || 'Setup failed. Please try again.');
+        }
+      } catch (err) {
+        showError('Connection error. Is the server running?');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Set Password';
+      }
+    });
+  </script>
+</body>
+</html>
