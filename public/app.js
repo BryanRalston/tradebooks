@@ -1981,6 +1981,390 @@ function openQuickAdd() {
 }
 
 /* -------------------------------------------------------
+   Onboarding Module — First-time setup wizard
+   ------------------------------------------------------- */
+const Onboarding = (() => {
+  let currentStep = 1;
+  let previousStep = 1;
+  let createdClientId = null;
+  let businessName = '';
+
+  const stepTitles = [
+    '',
+    'Business',
+    'Client',
+    'Job',
+    'Ready!'
+  ];
+
+  const stepSubtitles = [
+    '',
+    'This shows up on your invoices.',
+    'Who do you work for?',
+    'What are you working on right now?',
+    ''
+  ];
+
+  // SVG icons for each step
+  const stepIcons = {
+    1: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>',
+    2: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+    3: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>',
+    4: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',
+    check: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
+  };
+
+  function show() {
+    const overlay = document.getElementById('onboarding-overlay');
+    if (!overlay) return;
+    overlay.classList.add('active');
+    renderStep();
+  }
+
+  function hide() {
+    const overlay = document.getElementById('onboarding-overlay');
+    if (!overlay) return;
+    overlay.classList.remove('active');
+  }
+
+  function renderProgressBar() {
+    let html = '<div class="ob-progress">';
+    for (let i = 1; i <= 4; i++) {
+      const cls = i < currentStep ? 'complete' : i === currentStep ? 'active' : '';
+      const circleContent = i < currentStep
+        ? `<span class="ob-step-icon">${stepIcons.check}</span>`
+        : `<span class="ob-step-icon">${stepIcons[i]}</span>`;
+      html += `<div class="ob-step-indicator ${cls}">
+        <div class="ob-step-circle">${circleContent}</div>
+        <span class="ob-step-label">${stepTitles[i]}</span>
+      </div>`;
+      if (i < 4) html += `<div class="ob-step-line ${i < currentStep ? 'complete' : ''}"></div>`;
+    }
+    html += '</div>';
+    return html;
+  }
+
+  function renderStep() {
+    const body = document.getElementById('onboarding-body');
+    if (!body) return;
+
+    const slideDir = currentStep >= previousStep ? '' : ' ob-slide-left';
+    let html = '<div class="ob-container-inner">';
+    html += renderProgressBar();
+    html += `<div class="ob-step-content${slideDir}">`;
+
+    if (currentStep === 1) {
+      html += renderStep1();
+    } else if (currentStep === 2) {
+      html += renderStep2();
+    } else if (currentStep === 3) {
+      html += renderStep3();
+    } else if (currentStep === 4) {
+      html += renderStep4();
+    }
+
+    html += '</div></div>';
+    body.innerHTML = html;
+    previousStep = currentStep;
+    bindStepEvents();
+  }
+
+  function renderStep1() {
+    return `
+      <div class="ob-header">
+        <h2>Let's get you set up</h2>
+        <p class="ob-subtitle">${stepSubtitles[1]}</p>
+      </div>
+      <form id="ob-form" class="ob-form">
+        <div class="form-group">
+          <label class="form-label">Business Name</label>
+          <input type="text" id="ob-biz-name" class="form-input" placeholder="e.g. Smith Contracting LLC">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Address</label>
+          <textarea id="ob-biz-address" class="form-textarea" rows="2" placeholder="123 Main St, City, State ZIP"></textarea>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Phone</label>
+            <input type="tel" id="ob-biz-phone" class="form-input" placeholder="(555) 123-4567">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Email</label>
+            <input type="email" id="ob-biz-email" class="form-input" placeholder="you@example.com">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tax ID / EIN</label>
+          <input type="text" id="ob-biz-taxid" class="form-input" placeholder="XX-XXXXXXX">
+        </div>
+        <div class="ob-actions">
+          <button type="button" class="btn btn-ghost btn-sm ob-skip">Skip for now</button>
+          <button type="submit" class="btn btn-primary">Next &rarr;</button>
+        </div>
+      </form>`;
+  }
+
+  function renderStep2() {
+    return `
+      <div class="ob-header">
+        <h2>Add your first client</h2>
+        <p class="ob-subtitle">${stepSubtitles[2]}</p>
+      </div>
+      <form id="ob-form" class="ob-form">
+        <div class="form-group">
+          <label class="form-label">Client Name</label>
+          <input type="text" id="ob-client-name" class="form-input" placeholder="e.g. Johnson Residence">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Phone</label>
+            <input type="tel" id="ob-client-phone" class="form-input" placeholder="(555) 987-6543">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Email</label>
+            <input type="email" id="ob-client-email" class="form-input" placeholder="client@example.com">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Address</label>
+          <textarea id="ob-client-address" class="form-textarea" rows="2" placeholder="Client address"></textarea>
+        </div>
+        <div class="ob-actions">
+          <button type="button" class="btn btn-ghost btn-sm ob-back">&larr; Back</button>
+          <div class="ob-actions-right">
+            <button type="button" class="btn btn-ghost btn-sm ob-skip">Skip</button>
+            <button type="submit" class="btn btn-primary">Next &rarr;</button>
+          </div>
+        </div>
+      </form>`;
+  }
+
+  function renderStep3() {
+    const clientNote = createdClientId
+      ? '<p class="ob-hint">This will be linked to the client you just added.</p>'
+      : '';
+    return `
+      <div class="ob-header">
+        <h2>Create your first job</h2>
+        <p class="ob-subtitle">${stepSubtitles[3]}</p>
+      </div>
+      <form id="ob-form" class="ob-form">
+        <div class="form-group">
+          <label class="form-label">Job Name</label>
+          <input type="text" id="ob-job-name" class="form-input" placeholder="e.g. Kitchen Remodel">
+        </div>
+        ${clientNote}
+        <div class="form-group">
+          <label class="form-label">Budget</label>
+          <input type="number" id="ob-job-budget" class="form-input" step="0.01" min="0" inputmode="decimal" placeholder="0.00">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Description</label>
+          <textarea id="ob-job-desc" class="form-textarea" rows="2" placeholder="Brief description of the work"></textarea>
+        </div>
+        <div class="ob-actions">
+          <button type="button" class="btn btn-ghost btn-sm ob-back">&larr; Back</button>
+          <div class="ob-actions-right">
+            <button type="button" class="btn btn-ghost btn-sm ob-skip">Skip</button>
+            <button type="submit" class="btn btn-primary">Next &rarr;</button>
+          </div>
+        </div>
+      </form>`;
+  }
+
+  function renderStep4() {
+    const name = businessName || 'your business';
+    return `
+      <div class="ob-header ob-header-done">
+        <div class="ob-done-icon">
+          <div class="ob-done-circle">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+          </div>
+        </div>
+        <h2>Great, ${Utils.escapeHtml(name)} is all set!</h2>
+        <p class="ob-subtitle">Here's how TradeBooks helps you stay on top of your finances:</p>
+      </div>
+      <div class="ob-action-cards">
+        <a href="#/expenses/new" class="ob-action-card ob-action-card-red" data-dismiss="true">
+          <div class="ob-action-icon ob-action-icon-red">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          </div>
+          <div class="ob-action-info">
+            <strong>Log an Expense</strong>
+            <span>Track materials, gas, tools, and sub costs as you go.</span>
+          </div>
+        </a>
+        <a href="#/income/new" class="ob-action-card ob-action-card-green" data-dismiss="true">
+          <div class="ob-action-icon ob-action-icon-green">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+          </div>
+          <div class="ob-action-info">
+            <strong>Record Income</strong>
+            <span>Log payments as they come in — checks, transfers, cash.</span>
+          </div>
+        </a>
+        <a href="#/invoices/new" class="ob-action-card ob-action-card-blue" data-dismiss="true">
+          <div class="ob-action-icon ob-action-icon-blue">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>
+          </div>
+          <div class="ob-action-info">
+            <strong>Send an Invoice</strong>
+            <span>Create professional PDF invoices for clients in one click.</span>
+          </div>
+        </a>
+      </div>
+      <div class="ob-actions ob-actions-center">
+        <button type="button" class="btn btn-primary ob-finish">Go to Dashboard</button>
+      </div>`;
+  }
+
+  function bindStepEvents() {
+    const form = document.getElementById('ob-form');
+
+    // Skip buttons
+    document.querySelectorAll('.ob-skip').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (currentStep < 4) {
+          currentStep++;
+          renderStep();
+        }
+      });
+    });
+
+    // Back buttons
+    document.querySelectorAll('.ob-back').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (currentStep > 1) {
+          currentStep--;
+          renderStep();
+        }
+      });
+    });
+
+    // Finish button (step 4)
+    const finishBtn = document.querySelector('.ob-finish');
+    if (finishBtn) {
+      finishBtn.addEventListener('click', async () => {
+        await API.post('/api/onboarding/complete');
+        hide();
+        Router.navigate('#/');
+      });
+    }
+
+    // Action cards on step 4 — dismiss wizard then navigate
+    document.querySelectorAll('.ob-action-card[data-dismiss]').forEach(card => {
+      card.addEventListener('click', async (e) => {
+        e.preventDefault();
+        await API.post('/api/onboarding/complete');
+        hide();
+        const href = card.getAttribute('href');
+        if (href) Router.navigate(href);
+      });
+    });
+
+    // Form submissions
+    if (form) {
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btn = form.querySelector('button[type="submit"]');
+        if (btn) { btn.disabled = true; btn.innerHTML = 'Saving...'; }
+
+        let success = false;
+        if (currentStep === 1) success = await saveStep1();
+        else if (currentStep === 2) success = await saveStep2();
+        else if (currentStep === 3) success = await saveStep3();
+
+        if (btn) { btn.disabled = false; btn.innerHTML = 'Next &rarr;'; }
+
+        if (success !== false) {
+          currentStep++;
+          renderStep();
+        }
+      });
+    }
+  }
+
+  async function saveStep1() {
+    const name = document.getElementById('ob-biz-name')?.value.trim() || '';
+    const address = document.getElementById('ob-biz-address')?.value.trim() || '';
+    const phone = document.getElementById('ob-biz-phone')?.value.trim() || '';
+    const email = document.getElementById('ob-biz-email')?.value.trim() || '';
+    const taxId = document.getElementById('ob-biz-taxid')?.value.trim() || '';
+
+    businessName = name;
+
+    // Only save if at least one field has a value
+    if (name || address || phone || email || taxId) {
+      const payload = {};
+      if (name) payload.business_name = name;
+      if (address) payload.address = address;
+      if (phone) payload.phone = phone;
+      if (email) payload.email = email;
+      if (taxId) payload.tax_id = taxId;
+      const res = await API.put('/api/settings', payload);
+      if (!res) return false;
+    }
+    return true;
+  }
+
+  async function saveStep2() {
+    const name = document.getElementById('ob-client-name')?.value.trim() || '';
+    const phone = document.getElementById('ob-client-phone')?.value.trim() || '';
+    const email = document.getElementById('ob-client-email')?.value.trim() || '';
+    const address = document.getElementById('ob-client-address')?.value.trim() || '';
+
+    if (!name) {
+      // No name = skip
+      return true;
+    }
+
+    const res = await API.post('/api/clients', { name, phone, email, address });
+    if (res && res.id) {
+      createdClientId = res.id;
+      Store.invalidate('clients');
+    } else if (!res) {
+      return false;
+    }
+    return true;
+  }
+
+  async function saveStep3() {
+    const name = document.getElementById('ob-job-name')?.value.trim() || '';
+    const budget = parseFloat(document.getElementById('ob-job-budget')?.value) || null;
+    const description = document.getElementById('ob-job-desc')?.value.trim() || '';
+
+    if (!name) {
+      // No name = skip
+      return true;
+    }
+
+    const payload = { name, description, status: 'active' };
+    if (createdClientId) payload.client_id = createdClientId;
+    if (budget) payload.budget = budget;
+
+    const res = await API.post('/api/jobs', payload);
+    if (res) {
+      Store.invalidate('jobs');
+    } else {
+      return false;
+    }
+    return true;
+  }
+
+  async function checkAndShow() {
+    const status = await API.get('/api/onboarding/status');
+    if (status && !status.complete) {
+      show();
+    }
+  }
+
+  return { checkAndShow, show, hide };
+})();
+
+/* -------------------------------------------------------
    Init — Register all routes, bind events
    ------------------------------------------------------- */
 document.addEventListener('DOMContentLoaded', () => {
@@ -2006,6 +2390,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Init router (listen + dispatch initial route)
   Router.init();
+
+  // Check onboarding status
+  Onboarding.checkAndShow();
 
   // FAB — quick add expense
   const fab = document.getElementById('fab-add');

@@ -1899,6 +1899,31 @@ app.get('/api/dashboard', async (req, res) => {
 });
 
 // ===========================================================================
+// ONBOARDING
+// ===========================================================================
+app.get('/api/onboarding/status', async (req, res) => {
+  try {
+    const row = await get("SELECT value FROM settings WHERE key = 'onboarding_complete'");
+    res.json({ complete: row?.value === 'true' });
+  } catch (err) {
+    console.error('GET /api/onboarding/status error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/onboarding/complete', async (req, res) => {
+  try {
+    await run(
+      "INSERT INTO settings (key, value) VALUES ('onboarding_complete', 'true') ON CONFLICT(key) DO UPDATE SET value = 'true'"
+    );
+    res.json({ success: true });
+  } catch (err) {
+    console.error('POST /api/onboarding/complete error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ===========================================================================
 // START SERVER
 // ===========================================================================
 const HOST = process.env.TRADEBOOKS_HOST || '127.0.0.1';
