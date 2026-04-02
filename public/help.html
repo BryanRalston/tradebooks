@@ -1,0 +1,1648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#2563EB">
+  <title>Help & Guide — TradeBooks</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📒</text></svg>">
+  <style>
+    /* ===================================================
+       Design Tokens — matches "Clean Ledger" system
+       =================================================== */
+    :root {
+      --bg-page: #F8FAFC;
+      --bg-card: #FFFFFF;
+      --bg-input: #F1F5F9;
+      --bg-hover: #E2E8F0;
+      --text-primary: #0F172A;
+      --text-secondary: #475569;
+      --text-muted: #94A3B8;
+      --brand: #2563EB;
+      --brand-light: #DBEAFE;
+      --brand-dark: #1D4ED8;
+      --green: #16A34A;
+      --green-light: #DCFCE7;
+      --red: #DC2626;
+      --red-light: #FEE2E2;
+      --amber: #D97706;
+      --amber-light: #FEF3C7;
+      --border: #E2E8F0;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+      --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+      --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 14px;
+      --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-mono: 'SF Mono', 'Consolas', 'Liberation Mono', monospace;
+      --nav-width: 220px;
+    }
+
+    /* ===================================================
+       Reset & Base
+       =================================================== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+
+    body {
+      font-family: var(--font-body);
+      font-size: 15px;
+      line-height: 1.6;
+      color: var(--text-primary);
+      background: var(--bg-page);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    ::selection { background: var(--brand-light); color: var(--brand-dark); }
+
+    a { color: var(--brand); text-decoration: none; }
+    a:hover { color: var(--brand-dark); text-decoration: underline; }
+
+    h1, h2, h3, h4 { line-height: 1.25; font-weight: 700; }
+    p { line-height: 1.65; }
+
+    /* ===================================================
+       Top Header Bar
+       =================================================== */
+    .top-bar {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(255,255,255,0.92);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .top-bar-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: var(--text-primary);
+    }
+
+    .top-bar-brand:hover { text-decoration: none; color: var(--text-primary); }
+
+    .brand-icon {
+      width: 34px;
+      height: 34px;
+      background: var(--brand);
+      color: #fff;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .brand-icon svg { display: block; }
+
+    .brand-text { display: flex; flex-direction: column; }
+    .brand-name { font-size: 15px; font-weight: 700; line-height: 1.1; }
+    .brand-sub { font-size: 11px; color: var(--text-muted); font-weight: 400; }
+
+    .back-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      background: var(--brand);
+      color: #fff;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: background 0.15s ease, transform 0.1s ease;
+      white-space: nowrap;
+    }
+
+    .back-btn:hover {
+      background: var(--brand-dark);
+      color: #fff;
+      text-decoration: none;
+      transform: translateY(-1px);
+    }
+
+    .back-btn svg { flex-shrink: 0; }
+
+    /* ===================================================
+       Layout — sidebar nav + content
+       =================================================== */
+    .page-layout {
+      display: flex;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 24px;
+      gap: 40px;
+      align-items: flex-start;
+    }
+
+    /* ===================================================
+       Sticky Side Nav
+       =================================================== */
+    .side-nav {
+      width: var(--nav-width);
+      flex-shrink: 0;
+      position: sticky;
+      top: 80px;
+      padding: 24px 0;
+    }
+
+    .side-nav-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      padding: 0 12px 8px;
+      margin-top: 16px;
+    }
+
+    .side-nav-label:first-child { margin-top: 0; }
+
+    .side-nav a {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 12px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      text-decoration: none;
+      transition: background 0.12s ease, color 0.12s ease;
+    }
+
+    .side-nav a:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+      text-decoration: none;
+    }
+
+    .side-nav a.active {
+      background: var(--brand-light);
+      color: var(--brand);
+    }
+
+    .side-nav a .nav-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+      flex-shrink: 0;
+    }
+
+    /* ===================================================
+       Main Content Area
+       =================================================== */
+    .main-content {
+      flex: 1;
+      min-width: 0;
+      padding: 40px 0 80px;
+    }
+
+    /* ===================================================
+       Reveal Animation (IntersectionObserver)
+       =================================================== */
+    .reveal {
+      opacity: 0;
+      transform: translateY(18px);
+      transition: opacity 0.5s ease, transform 0.5s ease;
+    }
+
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .reveal-delay-1 { transition-delay: 0.1s; }
+    .reveal-delay-2 { transition-delay: 0.2s; }
+    .reveal-delay-3 { transition-delay: 0.3s; }
+    .reveal-delay-4 { transition-delay: 0.4s; }
+
+    /* ===================================================
+       Hero Section
+       =================================================== */
+    .hero {
+      padding: 48px 0 40px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 48px;
+    }
+
+    .hero-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--brand);
+      background: var(--brand-light);
+      padding: 4px 10px;
+      border-radius: 99px;
+      margin-bottom: 20px;
+    }
+
+    .hero h1 {
+      font-size: clamp(28px, 4vw, 40px);
+      color: var(--text-primary);
+      margin-bottom: 16px;
+      letter-spacing: -0.02em;
+    }
+
+    .hero h1 span {
+      color: var(--brand);
+    }
+
+    .hero-tagline {
+      font-size: 18px;
+      color: var(--text-secondary);
+      max-width: 560px;
+      margin-bottom: 28px;
+      font-weight: 400;
+    }
+
+    .hero-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .hero-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 99px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+
+    .hero-badge .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    /* ===================================================
+       Section Headers
+       =================================================== */
+    .section-header {
+      margin-bottom: 24px;
+    }
+
+    .section-header h2 {
+      font-size: 22px;
+      color: var(--text-primary);
+      margin-bottom: 6px;
+      letter-spacing: -0.01em;
+    }
+
+    .section-header p {
+      font-size: 14px;
+      color: var(--text-secondary);
+      margin: 0;
+    }
+
+    .section-divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 48px 0;
+    }
+
+    /* ===================================================
+       Quick Start Steps
+       =================================================== */
+    .quickstart-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+
+    .qs-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      position: relative;
+      transition: box-shadow 0.15s ease, transform 0.15s ease;
+    }
+
+    .qs-card:hover {
+      box-shadow: var(--shadow-md);
+      transform: translateY(-2px);
+    }
+
+    .qs-step-num {
+      width: 36px;
+      height: 36px;
+      background: var(--brand);
+      color: #fff;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 14px;
+    }
+
+    .qs-card h3 {
+      font-size: 15px;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+    }
+
+    .qs-card p {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin: 0;
+    }
+
+    .qs-card .qs-nav {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: 12px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--brand);
+      background: var(--brand-light);
+      padding: 3px 8px;
+      border-radius: 99px;
+    }
+
+    /* ===================================================
+       Workflow Cards (expandable)
+       =================================================== */
+    .workflow-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .workflow-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      transition: box-shadow 0.2s ease;
+    }
+
+    .workflow-card.open {
+      box-shadow: var(--shadow-md);
+    }
+
+    .workflow-card-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 18px 20px;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.12s ease;
+    }
+
+    .workflow-card-header:hover {
+      background: var(--bg-input);
+    }
+
+    .workflow-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      flex-shrink: 0;
+    }
+
+    .workflow-title-block { flex: 1; }
+
+    .workflow-title-block h3 {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 2px;
+    }
+
+    .workflow-title-block p {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin: 0;
+    }
+
+    .workflow-chevron {
+      color: var(--text-muted);
+      transition: transform 0.25s ease;
+      flex-shrink: 0;
+    }
+
+    .workflow-card.open .workflow-chevron {
+      transform: rotate(180deg);
+    }
+
+    .workflow-body {
+      display: grid;
+      grid-template-rows: 0fr;
+      transition: grid-template-rows 0.3s ease;
+      border-top: 0px solid var(--border);
+    }
+
+    .workflow-card.open .workflow-body {
+      grid-template-rows: 1fr;
+      border-top: 1px solid var(--border);
+    }
+
+    .workflow-body-inner {
+      overflow: hidden;
+      padding: 0;
+      transition: padding 0.3s ease;
+    }
+
+    .workflow-card.open .workflow-body-inner {
+      padding: 20px 24px 24px;
+    }
+
+    /* Steps inside a workflow */
+    .workflow-steps {
+      list-style: none;
+      counter-reset: step;
+    }
+
+    .workflow-step {
+      display: flex;
+      gap: 14px;
+      padding: 10px 0;
+      border-bottom: 1px dashed var(--border);
+      counter-increment: step;
+    }
+
+    .workflow-step:last-child { border-bottom: none; }
+
+    .step-num {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: var(--brand-light);
+      color: var(--brand);
+      font-size: 12px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .step-content { flex: 1; }
+
+    .step-content strong {
+      display: block;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 3px;
+    }
+
+    .step-content span {
+      font-size: 13px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+
+    .step-tip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      margin-top: 6px;
+      font-size: 12px;
+      color: var(--amber);
+      background: var(--amber-light);
+      padding: 3px 8px;
+      border-radius: var(--radius-sm);
+    }
+
+    .step-nav-path {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      font-family: var(--font-mono);
+      background: var(--bg-input);
+      color: var(--text-secondary);
+      padding: 2px 8px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+    }
+
+    /* ===================================================
+       Feature Reference Grid
+       =================================================== */
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+    }
+
+    .feature-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      transition: box-shadow 0.15s ease;
+    }
+
+    .feature-item:hover { box-shadow: var(--shadow-sm); }
+
+    .feature-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+
+    .feature-text h4 {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+
+    .feature-text p {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin: 0;
+      line-height: 1.5;
+    }
+
+    /* ===================================================
+       Tips Section
+       =================================================== */
+    .tips-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 14px;
+    }
+
+    .tip-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--green);
+      border-radius: var(--radius-md);
+      padding: 18px 20px;
+      transition: box-shadow 0.15s ease;
+    }
+
+    .tip-card:hover { box-shadow: var(--shadow-sm); }
+
+    .tip-card .tip-label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--green);
+      margin-bottom: 8px;
+    }
+
+    .tip-card h4 {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 6px;
+    }
+
+    .tip-card p {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin: 0;
+      line-height: 1.55;
+    }
+
+    /* ===================================================
+       FAQ Accordion
+       =================================================== */
+    .faq-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .faq-item {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+    }
+
+    .faq-question {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 16px 20px;
+      cursor: pointer;
+      user-select: none;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+      transition: background 0.12s ease;
+    }
+
+    .faq-question:hover { background: var(--bg-input); }
+
+    .faq-chevron {
+      color: var(--text-muted);
+      flex-shrink: 0;
+      transition: transform 0.25s ease;
+    }
+
+    .faq-item.open .faq-chevron { transform: rotate(180deg); }
+
+    .faq-answer {
+      display: grid;
+      grid-template-rows: 0fr;
+      transition: grid-template-rows 0.3s ease;
+      border-top: 0px solid var(--border);
+    }
+
+    .faq-item.open .faq-answer {
+      grid-template-rows: 1fr;
+      border-top: 1px solid var(--border);
+    }
+
+    .faq-answer-inner {
+      overflow: hidden;
+      font-size: 14px;
+      color: var(--text-secondary);
+      line-height: 1.65;
+      padding: 0 20px;
+      transition: padding 0.3s ease;
+    }
+
+    .faq-item.open .faq-answer-inner {
+      padding: 16px 20px 20px;
+    }
+
+    .faq-answer-inner p { margin: 0 0 10px; }
+    .faq-answer-inner p:last-child { margin-bottom: 0; }
+
+    /* ===================================================
+       CTA Footer Band
+       =================================================== */
+    .help-cta {
+      background: linear-gradient(135deg, var(--brand) 0%, #1e40af 100%);
+      border-radius: var(--radius-lg);
+      padding: 36px 40px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      margin-top: 48px;
+    }
+
+    .help-cta-text h3 {
+      font-size: 20px;
+      color: #fff;
+      margin-bottom: 6px;
+    }
+
+    .help-cta-text p {
+      font-size: 14px;
+      color: rgba(255,255,255,0.8);
+      margin: 0;
+    }
+
+    .cta-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 22px;
+      background: #fff;
+      color: var(--brand);
+      border-radius: var(--radius-md);
+      font-size: 14px;
+      font-weight: 700;
+      text-decoration: none;
+      white-space: nowrap;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+
+    .cta-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+      color: var(--brand-dark);
+      text-decoration: none;
+    }
+
+    /* ===================================================
+       Mobile Responsive
+       =================================================== */
+    @media (max-width: 900px) {
+      .side-nav { display: none; }
+      .page-layout { gap: 0; padding: 0 16px; }
+      .main-content { padding: 24px 0 64px; }
+      .quickstart-grid { grid-template-columns: 1fr; }
+      .feature-grid { grid-template-columns: 1fr; }
+      .tips-grid { grid-template-columns: 1fr; }
+      .help-cta {
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 28px 24px;
+      }
+      .hero { padding: 28px 0 28px; }
+      .hero h1 { font-size: 26px; }
+      .hero-tagline { font-size: 15px; }
+    }
+
+    @media (max-width: 600px) {
+      .top-bar { padding: 0 16px; }
+      .brand-sub { display: none; }
+    }
+
+    /* ===================================================
+       Progress bar (scroll indicator)
+       =================================================== */
+    .progress-bar {
+      position: fixed;
+      top: 60px;
+      left: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--brand), #60a5fa);
+      width: 0%;
+      z-index: 99;
+      transition: width 0.1s linear;
+    }
+
+    /* ===================================================
+       Inline code / key path styling
+       =================================================== */
+    code {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      padding: 1px 5px;
+      border-radius: 4px;
+      color: var(--brand-dark);
+    }
+
+    /* ===================================================
+       Utility
+       =================================================== */
+    .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
+    .mt-48 { margin-top: 48px; }
+  </style>
+</head>
+<body>
+
+  <!-- Scroll progress indicator -->
+  <div class="progress-bar" id="progress-bar" role="progressbar" aria-label="Reading progress"></div>
+
+  <!-- ================================================
+       Top Header Bar
+       ================================================ -->
+  <header class="top-bar">
+    <a href="/" class="top-bar-brand">
+      <div class="brand-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+          <line x1="8" y1="7" x2="16" y2="7"/>
+          <line x1="8" y1="11" x2="14" y2="11"/>
+        </svg>
+      </div>
+      <div class="brand-text">
+        <span class="brand-name">TradeBooks</span>
+        <span class="brand-sub">Help &amp; Guide</span>
+      </div>
+    </a>
+    <a href="/" class="back-btn">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="15 18 9 12 15 6"/>
+      </svg>
+      Back to TradeBooks
+    </a>
+  </header>
+
+  <!-- ================================================
+       Page Layout
+       ================================================ -->
+  <div class="page-layout">
+
+    <!-- Sticky Side Navigation -->
+    <nav class="side-nav" id="side-nav" aria-label="Help navigation">
+      <div class="side-nav-label">On this page</div>
+      <a href="#quick-start" class="active"><span class="nav-dot"></span> Quick Start</a>
+      <a href="#workflows"><span class="nav-dot"></span> Core Workflows</a>
+      <a href="#features"><span class="nav-dot"></span> Feature Reference</a>
+      <a href="#tips"><span class="nav-dot"></span> Tips for Contractors</a>
+      <a href="#faq"><span class="nav-dot"></span> FAQ</a>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+
+      <!-- ==========================================
+           HERO
+           ========================================== -->
+      <section class="hero reveal" id="hero">
+        <div class="hero-eyebrow">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          Help &amp; Guide
+        </div>
+        <h1>Welcome to <span>TradeBooks</span></h1>
+        <p class="hero-tagline">Your books, your jobs, your numbers — all in one place. Built for contractors who'd rather be on the job site than buried in spreadsheets.</p>
+        <div class="hero-badges">
+          <span class="hero-badge"><span class="dot" style="background:var(--brand)"></span> Track every expense</span>
+          <span class="hero-badge"><span class="dot" style="background:var(--green)"></span> Get paid faster</span>
+          <span class="hero-badge"><span class="dot" style="background:var(--amber)"></span> Tax-ready reports</span>
+          <span class="hero-badge"><span class="dot" style="background:var(--text-muted)"></span> Works on your phone</span>
+        </div>
+      </section>
+
+      <!-- ==========================================
+           QUICK START
+           ========================================== -->
+      <section id="quick-start">
+        <div class="section-header reveal">
+          <h2>Quick Start — 3 Steps to Get Going</h2>
+          <p>New to TradeBooks? Do these three things first and you'll be set up for every job going forward.</p>
+        </div>
+
+        <div class="quickstart-grid">
+          <div class="qs-card reveal reveal-delay-1">
+            <div class="qs-step-num">1</div>
+            <h3>Set Up Your Business Info</h3>
+            <p>Add your company name, address, and logo. This shows up on every invoice you send — make it look professional from day one.</p>
+            <span class="qs-nav">⚙️ Settings → Business Info</span>
+          </div>
+          <div class="qs-card reveal reveal-delay-2">
+            <div class="qs-step-num">2</div>
+            <h3>Add Your First Client</h3>
+            <p>Enter the homeowner or GC you're working for. You'll link jobs and invoices to this client, so everything stays organized by who you're working with.</p>
+            <span class="qs-nav">👥 Clients → Add Client</span>
+          </div>
+          <div class="qs-card reveal reveal-delay-3">
+            <div class="qs-step-num">3</div>
+            <h3>Create Your First Job</h3>
+            <p>Give the job a name, link it to your client, and set a budget if you have one. Now you can start tracking every dollar that goes in and out of that job.</p>
+            <span class="qs-nav">💼 Jobs → New Job</span>
+          </div>
+        </div>
+      </section>
+
+      <hr class="section-divider">
+
+      <!-- ==========================================
+           CORE WORKFLOWS
+           ========================================== -->
+      <section id="workflows">
+        <div class="section-header reveal">
+          <h2>Core Workflows</h2>
+          <p>The five things you'll do most often — click any card to see step-by-step instructions.</p>
+        </div>
+
+        <div class="workflow-list">
+
+          <!-- 1. Track an Expense -->
+          <div class="workflow-card reveal" id="wf-expense">
+            <div class="workflow-card-header" onclick="toggleWorkflow('wf-expense')">
+              <div class="workflow-icon" style="background:#FEE2E2;">💸</div>
+              <div class="workflow-title-block">
+                <h3>Track an Expense</h3>
+                <p>Log what you spent — materials, subs, fuel, anything job-related.</p>
+              </div>
+              <svg class="workflow-chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </div>
+            <div class="workflow-body">
+              <div class="workflow-body-inner">
+                <ol class="workflow-steps">
+                  <li class="workflow-step">
+                    <div class="step-num">1</div>
+                    <div class="step-content">
+                      <strong>Open Expenses</strong>
+                      <span>Tap <span class="step-nav-path">Expenses</span> in the sidebar (desktop) or the bottom tab bar (phone).</span>
+                    </div>
+                  </li>
+                  <li class="workflow-step">
+                    <div class="step-num">2</div>
+                    <div class="step-content">
+                      <strong>Click "Add Expense"</strong>
+                      <span>The big blue button at the top right. A form slides in — this is where you enter the details.</span>
+                    </div>
+                  </li>
+                  <li class="workflow-step">
+                    <div class="step-num">3</div>
+                    <div class="step-content">
+                      <strong>Fill in the details</strong>
+                      <span>Enter the date, amount, vendor (who you paid), and pick a category. Link it to a job if it belongs to one — this is important for profitability tracking later.</span>
+                    </div>
+                  </li>
+                  <li class="workflow-step">
+                    <div class="step-num">4</div>
+                    <div class="step-content">
+                      <strong>Upload your receipt photo</strong>
+                      <span>Tap the camera/upload area and snap a photo or pick one from your camera roll. Your receipt is now stored with the record — no more lost paper.</span>
+                      <div class="step-tip">💡 Snap the photo right after you pay. Takes 5 seconds and saves headaches at tax time.</div>
+                    </div>
+                  </li>
+                  <li class="workflow-step">
+                    <div class="step-num">5</div>
+                    <div class="step-content">
+                      <strong>Save it</strong>
+                      <span>Hit <strong>Save Expense</strong>. The expense shows up instantly in your list and rolls up to your dashboard totals.</span>
+                    </div>
+                  </li>
+                </ol>
+              </div>
+            </div>
+          </div>
+
+          <!-- 2. Record a Payment -->
+          <div class="workflow-card reveal" id="wf-income">
+            <div class="workflow-card-header" onclick="toggleWorkflow('wf-income')">
+              <div class="workflow-icon" style="background:#DCFCE7;">💰</div>
+              <div class="workflow-title-block">
+                <h3>Record a Payment</h3>
+                <p>Track money coming in — deposits, progress payments, final pay, anything.</p>
+              </div>
+              <svg class="workflow-chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </div>
+            <div class="workflow-body">
+              <div class="workflow-body-inner">
+                <ol class="workflow-steps">
+                  <li class="workflow-step">
+                    <div class="step-num">1</div>
+                    <div class="step-content">
+                      <strong>Open Income</strong>
+                      <span>Tap <span class="step-nav-path">Income</span> in the navigation menu.</span>
+                    </div>
+                  </li>
+                  <li class="workflow-step">
+                    <div class="step-num">2</div>
+                    <div class="step-content">
+                      <strong>Click "Add Income"</strong>
+                      <span>Opens the income entry form.</span>
+                    </div>
+                  </li>
+                  <li class="workflow-step">
+                    <div class="step-num">3</div>
+                    <div class="step-content">
+                      <strong>Enter the payment details</strong>
+                      <span>Date, amount, payer (who paid you), and a description — like "Kitchen remodel deposit" or "Final draw, 123 Oak Street."</span>
+                    </div>
+                  </li>
+                  <li class="workflow-step">
+                    <div class="step-num">4</div>
+                    <div class="step-content">
+                      <strong>Link it to a job</strong>
+                      <span>Select the job from the dropdown. This connects the payment to the right project so your per-job profit numbers are accurate.</span>
+                      <div class="step-tip">💡 Always link payments to a job. It makes profitability reports actually useful.</div>
+                    </div>
+                  </li>
+                  <li class="workflow-step">
+                    <div class="step-num">5</div>
+                    <div class="step-content">
+                      <strong>Save it</strong>
+                      <span>Your income is recorded. The dashboard updates automatically.</span>
+                    </div>
+                  </li>
+                </ol>
+              </div>
+            </div>
+          </div>
+
+          <!-- 3. Create a Job -->
+          <div class="workflow-card reveal" id="wf-job">
+            <div class="workflow-card-header" onclick="toggleWorkflow('wf-job')">
+              <div class="workflow-icon" style="background:#DBEAFE;">💼</div>
+              <div class="workflow-title-block">
+                <h3>Create a Job</h3>
+                <p>Set up a project so you can track all its costs and payments in one place.</p>
+              </div>
+              <svg class="workflow-chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </div>
+            <div class="workflow-body">
+              <div class="workflow-body-inner">
+                <ol class="workflow-steps">
+                  <li class="workflow-step">
+                    <div class="step-num">1</div>
+                    <div class="step-content">
+                      <strong>Open Jobs</strong>
+                      <span>Tap <span class="step-nav-path">Jobs</span> in the nav.</span>
+                    </div>
+                  </li>
+                  <li class="workflow-step">
+                    <div class="step-num">2</div>
+                    <div class="step-content">
+                      <strong>Click "New Job"</strong>
+                      <span>The job creation form opens.</span>
+                    </div>
+                  </li>
+                  <li class="workflow-step">
+                    <div class="step-num">3</div>
+                    <div class="step-content">
+                      <strong>Name the job and pick your client</strong>
+                      <span>Use something descriptive — the address or project type works well. Link it to the right client from the dropdown.</span>
+                    </div>
+                  </li>
+                  <li class="workflow-step">
+                    <div class="step-num">4</div>
+                    <div class="step-content">
+                      <strong>Set a budget (optional)</strong>
+                      <span>Enter your contract amount or budget. TradeBooks will track your actual spending against it so you can see at a glance whether you're on track.</span>
+                    </div>
+                  </li>
+                  <li class="workflow-step">
+                    <div class="step-num">5</div>
+                    <div class="step-content">
+                      <strong>Save and start tracking</strong>
+                      <span>The job is live. Now tag expenses and income to this job as the project moves forward.</span>
+                    </div>
+                  </li>
+                </ol>
+              </div>
+            </div>
+          </div>
+
+          <!-- 4. Send an Invoice -->
+          <div class="workflow-card reveal" id="wf-invoice">
+            <div class="workflow-card-header" onclick="toggleWorkflow('wf-invoice')">
+              <div class="workflow-icon" style="background:#FEF3C7;">🧾</div>
+              <div class="workflow-title-block">
+                <h3>Send an Invoice</h3>
+                <p>Bill your client professionally — download a PDF and send it by text or email.</p>
+              </div>
+              <svg class="workflow-chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </div>
+            <div class="workflow-body">
+              <div class="workflow-body-inner">
+                <ol class="workflow-steps">
+                  <li class="workflow-step">
+                    <div class="step-num">1</div>
+                    <div class="step-content">
+                      <strong>Open Invoices</strong>
+                      <span>Tap <span class="step-nav-path">Invoices</span> in the nav.</span>
+                    </div>
+                  </li>
+                  <li class="workflow-step">
+                    <div class="step-num">2</div>
+                    <div class="step-content">
+                      <strong>Click "New Invoice"</strong>
+                      <span>Pick your client and the job this invoice is for.</span>
+                    </div>
+                  </li>
+                  <li class="workflow-step">
+                    <div class="step-num">3</div>
+                    <div class="step-content">
+                      <strong>Add line items</strong>
+                      <span>Each line is a thing you're billing for — labor, materials, equipment, whatever makes sense. Give it a description, quantity, and rate. The total calculates automatically.</span>
+                    </div>
+                  </li>
+                  <li class="workflow-step">
+                    <div class="step-num">4</div>
+                    <div class="step-content">
+                      <strong>Set tax and due date</strong>
+                      <span>If you charge sales tax, enter the rate and it'll be calculated on the total. Set your payment terms (e.g., due in 30 days).</span>
+                    </div>
+                  </li>
+                  <li class="workflow-step">
+                    <div class="step-num">5</div>
+                    <div class="step-content">
+                      <strong>Save and download the PDF</strong>
+                      <span>Hit <strong>Save Invoice</strong>, then click the PDF button. You'll get a professional-looking invoice with your business name and all the details.</span>
+                      <div class="step-tip">💡 Text the PDF directly to your client. Most homeowners respond faster to a text than an email.</div>
+                    </div>
+                  </li>
+                  <li class="workflow-step">
+                    <div class="step-num">6</div>
+                    <div class="step-content">
+                      <strong>Mark it sent, then paid when you collect</strong>
+                      <span>Update the invoice status as it moves — <em>Draft → Sent → Paid</em>. When you mark it Paid, that payment automatically records in your Income.</span>
+                    </div>
+                  </li>
+                </ol>
+              </div>
+            </div>
+          </div>
+
+          <!-- 5. Run a Tax Report -->
+          <div class="workflow-card reveal" id="wf-reports">
+            <div class="workflow-card-header" onclick="toggleWorkflow('wf-reports')">
+              <div class="workflow-icon" style="background:#F3E8FF;">📊</div>
+              <div class="workflow-title-block">
+                <h3>Run a Tax Report</h3>
+                <p>Get your numbers ready for your accountant — or file it yourself.</p>
+              </div>
+              <svg class="workflow-chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </div>
+            <div class="workflow-body">
+              <div class="workflow-body-inner">
+                <ol class="workflow-steps">
+                  <li class="workflow-step">
+                    <div class="step-num">1</div>
+                    <div class="step-content">
+                      <strong>Open Reports</strong>
+                      <span>Tap <span class="step-nav-path">Reports</span> in the nav.</span>
+                    </div>
+                  </li>
+                  <li class="workflow-step">
+                    <div class="step-num">2</div>
+                    <div class="step-content">
+                      <strong>Select Tax Summary</strong>
+                      <span>This is your Schedule C-aligned summary — income and expenses broken down by category, exactly how your accountant needs it.</span>
+                    </div>
+                  </li>
+                  <li class="workflow-step">
+                    <div class="step-num">3</div>
+                    <div class="step-content">
+                      <strong>Pick the tax year</strong>
+                      <span>Choose the year you're reporting on from the date picker.</span>
+                    </div>
+                  </li>
+                  <li class="workflow-step">
+                    <div class="step-num">4</div>
+                    <div class="step-content">
+                      <strong>Generate the report</strong>
+                      <span>Click <strong>Generate</strong>. TradeBooks pulls all your categorized expenses and income for that period and calculates totals, net profit, and deductible amounts.</span>
+                    </div>
+                  </li>
+                  <li class="workflow-step">
+                    <div class="step-num">5</div>
+                    <div class="step-content">
+                      <strong>Export to CSV</strong>
+                      <span>Hit <strong>Export CSV</strong> and send the file to your accountant. They'll have everything they need — no more digging through shoeboxes.</span>
+                      <div class="step-tip">💡 Run this report quarterly, not just at year-end. You'll catch surprises early and stay ahead of estimated taxes.</div>
+                    </div>
+                  </li>
+                </ol>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- /workflow-list -->
+      </section>
+
+      <hr class="section-divider">
+
+      <!-- ==========================================
+           FEATURE REFERENCE
+           ========================================== -->
+      <section id="features">
+        <div class="section-header reveal">
+          <h2>Feature Reference</h2>
+          <p>Everything TradeBooks does — at a glance.</p>
+        </div>
+
+        <div class="feature-grid">
+          <div class="feature-item reveal reveal-delay-1">
+            <div class="feature-icon" style="background:#DBEAFE;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+                <rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>
+              </svg>
+            </div>
+            <div class="feature-text">
+              <h4>Dashboard</h4>
+              <p>Your financial snapshot — total income, expenses, net profit, and outstanding invoices for the current month and year.</p>
+            </div>
+          </div>
+
+          <div class="feature-item reveal reveal-delay-2">
+            <div class="feature-icon" style="background:#FEE2E2;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#DC2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <polyline points="8 12 12 16 16 12"/>
+                <line x1="12" y1="8" x2="12" y2="16"/>
+              </svg>
+            </div>
+            <div class="feature-text">
+              <h4>Expenses</h4>
+              <p>Log every cost with a vendor, category, job link, and optional receipt photo. Categorized for Schedule C deductions.</p>
+            </div>
+          </div>
+
+          <div class="feature-item reveal reveal-delay-3">
+            <div class="feature-icon" style="background:#DCFCE7;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <polyline points="16 12 12 8 8 12"/>
+                <line x1="12" y1="16" x2="12" y2="8"/>
+              </svg>
+            </div>
+            <div class="feature-text">
+              <h4>Income</h4>
+              <p>Record every payment received — linked to the right client and job. Gives you an accurate picture of what you've actually collected.</p>
+            </div>
+          </div>
+
+          <div class="feature-item reveal reveal-delay-4">
+            <div class="feature-icon" style="background:#DBEAFE;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
+                <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
+              </svg>
+            </div>
+            <div class="feature-text">
+              <h4>Jobs</h4>
+              <p>Track each project from start to finish — budget vs. actual spending, linked expenses, payments, and status.</p>
+            </div>
+          </div>
+
+          <div class="feature-item reveal">
+            <div class="feature-icon" style="background:#F0FDF4;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+              </svg>
+            </div>
+            <div class="feature-text">
+              <h4>Clients</h4>
+              <p>Store contact info for every client — name, phone, email, address. All their jobs and invoices are one click away.</p>
+            </div>
+          </div>
+
+          <div class="feature-item reveal reveal-delay-1">
+            <div class="feature-icon" style="background:#FEF3C7;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#D97706" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+              </svg>
+            </div>
+            <div class="feature-text">
+              <h4>Invoices</h4>
+              <p>Create professional invoices with line items, tax, and due dates. Download as PDF and track status from draft to paid.</p>
+            </div>
+          </div>
+
+          <div class="feature-item reveal reveal-delay-2">
+            <div class="feature-icon" style="background:#F3E8FF;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9333EA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="20" x2="18" y2="10"/>
+                <line x1="12" y1="20" x2="12" y2="4"/>
+                <line x1="6" y1="20" x2="6" y2="14"/>
+              </svg>
+            </div>
+            <div class="feature-text">
+              <h4>Reports</h4>
+              <p>Tax summary, profit &amp; loss, and per-job reports. Export to CSV for your accountant — all categories align to Schedule C.</p>
+            </div>
+          </div>
+
+          <div class="feature-item reveal reveal-delay-3">
+            <div class="feature-icon" style="background:#F1F5F9;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+                <path d="M4.93 4.93a10 10 0 0 0 0 14.14"/>
+              </svg>
+            </div>
+            <div class="feature-text">
+              <h4>Settings</h4>
+              <p>Business name, logo, default tax rate, payment terms, and expense categories — all configurable to match how you work.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <hr class="section-divider">
+
+      <!-- ==========================================
+           TIPS FOR CONTRACTORS
+           ========================================== -->
+      <section id="tips">
+        <div class="section-header reveal">
+          <h2>Tips for Contractors</h2>
+          <p>A few habits that make TradeBooks work even harder for you.</p>
+        </div>
+
+        <div class="tips-grid">
+          <div class="tip-card reveal reveal-delay-1">
+            <div class="tip-label">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+              Pro Tip
+            </div>
+            <h4>Snap receipt photos immediately</h4>
+            <p>Take the photo right when you pay — at the register, at the lumber yard, before you leave the parking lot. You'll never have to dig through a pile of crumpled receipts again, and every deduction is documented if the IRS ever asks.</p>
+          </div>
+
+          <div class="tip-card reveal reveal-delay-2">
+            <div class="tip-label">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+              Pro Tip
+            </div>
+            <h4>Always link expenses to a job</h4>
+            <p>It only takes a second, but it's the difference between knowing whether a job made money versus just guessing. Per-job profitability is your most valuable business insight — don't skip this step.</p>
+          </div>
+
+          <div class="tip-card reveal reveal-delay-3">
+            <div class="tip-label">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+              Pro Tip
+            </div>
+            <h4>Invoice as soon as you hit a milestone</h4>
+            <p>Don't wait until the job is done. Set up milestone-based invoices — deposit, rough-in, completion — and send each one the day you hit it. The faster you invoice, the faster you get paid.</p>
+          </div>
+
+          <div class="tip-card reveal reveal-delay-4">
+            <div class="tip-label">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+              Pro Tip
+            </div>
+            <h4>Run a quarterly tax check-in</h4>
+            <p>Pull a Tax Summary report every three months. If you're making good money, you may owe estimated quarterly taxes — catching it early means no surprise bill in April. Your accountant will thank you.</p>
+          </div>
+
+          <div class="tip-card reveal" style="border-left-color: var(--brand);">
+            <div class="tip-label" style="color: var(--brand);">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              </svg>
+              Best Practice
+            </div>
+            <h4>Set a budget for every job</h4>
+            <p>Even a rough number — your contract amount, or what you think materials and labor should cost. TradeBooks shows you actual vs. budget in real time. It's the earliest warning system you have for a job going sideways.</p>
+          </div>
+        </div>
+      </section>
+
+      <hr class="section-divider">
+
+      <!-- ==========================================
+           FAQ
+           ========================================== -->
+      <section id="faq">
+        <div class="section-header reveal">
+          <h2>Frequently Asked Questions</h2>
+          <p>Quick answers to the questions that come up most.</p>
+        </div>
+
+        <div class="faq-list">
+
+          <div class="faq-item reveal">
+            <div class="faq-question" onclick="toggleFaq(this)">
+              How do I reset my password?
+              <svg class="faq-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </div>
+            <div class="faq-answer">
+              <div class="faq-answer-inner">
+                <p>On the login screen, click <strong>"Forgot password?"</strong> below the sign-in button. Enter your email address and you'll receive a reset link within a few minutes. Check your spam folder if you don't see it.</p>
+                <p>If you're already logged in and want to change your password, go to <strong>Settings → Account</strong> and look for the password section.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="faq-item reveal reveal-delay-1">
+            <div class="faq-question" onclick="toggleFaq(this)">
+              Can I use TradeBooks on my phone?
+              <svg class="faq-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </div>
+            <div class="faq-answer">
+              <div class="faq-answer-inner">
+                <p>Yes — TradeBooks is built mobile-first. Open it in your phone's browser and it adapts to a clean bottom-tab layout. You can also add it to your home screen for a native app feel: in Safari tap the <strong>Share</strong> button and choose <em>Add to Home Screen</em>, or in Chrome tap the menu and choose <em>Install App</em>.</p>
+                <p>Receipt photo capture works directly from your phone's camera — perfect for snapping a photo right at the job site.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="faq-item reveal reveal-delay-2">
+            <div class="faq-question" onclick="toggleFaq(this)">
+              How do I get my data ready for my accountant?
+              <svg class="faq-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </div>
+            <div class="faq-answer">
+              <div class="faq-answer-inner">
+                <p>Go to <strong>Reports → Tax Summary</strong>, select the tax year, generate the report, then click <strong>Export CSV</strong>. The CSV file has all your income and expenses broken down by Schedule C category — exactly what your accountant needs.</p>
+                <p>Most contractors email this file to their accountant in January and they're done. Some accountants prefer a printed summary — you can also download the full report as a PDF.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="faq-item reveal reveal-delay-3">
+            <div class="faq-question" onclick="toggleFaq(this)">
+              What happens when I mark an invoice as paid?
+              <svg class="faq-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </div>
+            <div class="faq-answer">
+              <div class="faq-answer-inner">
+                <p>The invoice status changes to <strong>Paid</strong> and the total amount is automatically recorded as income — linked to the right client and job. You don't have to enter it twice.</p>
+                <p>Your dashboard totals update immediately, and that income appears in your Reports. If you later need to un-mark an invoice as paid, just edit it and change the status back — the income record will update to match.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="faq-item reveal reveal-delay-4">
+            <div class="faq-question" onclick="toggleFaq(this)">
+              Can I add my own expense categories?
+              <svg class="faq-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </div>
+            <div class="faq-answer">
+              <div class="faq-answer-inner">
+                <p>Yes. Go to <strong>Settings → Categories</strong> and you can add custom expense categories alongside the built-in Schedule C ones. Give each category a name and a color so it's easy to spot at a glance.</p>
+                <p>A quick note: the built-in categories (Materials, Subcontractors, Fuel, etc.) map directly to Schedule C lines — if you're aiming for clean tax reporting, it's worth using those where possible and reserving custom categories for things that are specific to your business.</p>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ==========================================
+           CTA FOOTER
+           ========================================== -->
+      <div class="help-cta reveal mt-48">
+        <div class="help-cta-text">
+          <h3>Ready to get back to work?</h3>
+          <p>Your books are waiting. Every expense you log today saves you time at tax season.</p>
+        </div>
+        <a href="/" class="cta-btn">
+          Open TradeBooks
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="5" y1="12" x2="19" y2="12"/>
+            <polyline points="12 5 19 12 12 19"/>
+          </svg>
+        </a>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- ================================================
+       JavaScript
+       ================================================ -->
+  <script>
+    // -----------------------------------------------
+    // Scroll progress bar
+    // -----------------------------------------------
+    const progressBar = document.getElementById('progress-bar');
+
+    function updateProgress() {
+      const scrollTop = window.scrollY;
+      const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+      const pct = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
+      progressBar.style.width = pct + '%';
+    }
+
+    window.addEventListener('scroll', updateProgress, { passive: true });
+    updateProgress();
+
+    // -----------------------------------------------
+    // IntersectionObserver — reveal animations
+    // -----------------------------------------------
+    const revealEls = document.querySelectorAll('.reveal');
+
+    // Immediately reveal hero (above fold)
+    const heroReveal = document.querySelector('.hero.reveal');
+    if (heroReveal) {
+      // Small delay so the animation plays on page load
+      setTimeout(() => heroReveal.classList.add('visible'), 80);
+    }
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+          observer.unobserve(entry.target);
+        }
+      });
+    }, {
+      threshold: 0.12,
+      rootMargin: '0px 0px -40px 0px'
+    });
+
+    revealEls.forEach(el => {
+      if (el !== heroReveal) observer.observe(el);
+    });
+
+    // -----------------------------------------------
+    // Workflow card accordion
+    // -----------------------------------------------
+    function toggleWorkflow(id) {
+      const card = document.getElementById(id);
+      if (!card) return;
+
+      const isOpen = card.classList.contains('open');
+
+      // Close all first
+      document.querySelectorAll('.workflow-card.open').forEach(c => {
+        if (c !== card) c.classList.remove('open');
+      });
+
+      // Toggle clicked
+      card.classList.toggle('open', !isOpen);
+
+      // Scroll card into view on open (with a bit of top clearance)
+      if (!isOpen) {
+        setTimeout(() => {
+          const rect = card.getBoundingClientRect();
+          const scrollY = window.scrollY + rect.top - 80;
+          window.scrollTo({ top: scrollY, behavior: 'smooth' });
+        }, 50);
+      }
+    }
+
+    // -----------------------------------------------
+    // FAQ accordion
+    // -----------------------------------------------
+    function toggleFaq(questionEl) {
+      const item = questionEl.closest('.faq-item');
+      if (!item) return;
+      item.classList.toggle('open');
+    }
+
+    // -----------------------------------------------
+    // Active section highlighting in side nav
+    // -----------------------------------------------
+    const sections = ['quick-start', 'workflows', 'features', 'tips', 'faq'];
+    const navLinks = document.querySelectorAll('.side-nav a');
+
+    function updateActiveNav() {
+      let active = sections[0];
+      const scrollY = window.scrollY + 100;
+
+      sections.forEach(id => {
+        const el = document.getElementById(id);
+        if (el && el.offsetTop <= scrollY) active = id;
+      });
+
+      navLinks.forEach(link => {
+        const href = link.getAttribute('href').replace('#', '');
+        link.classList.toggle('active', href === active);
+      });
+    }
+
+    window.addEventListener('scroll', updateActiveNav, { passive: true });
+    updateActiveNav();
+  </script>
+
+</body>
+</html>

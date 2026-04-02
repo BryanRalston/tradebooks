@@ -478,12 +478,20 @@ const ExpenseForm = (() => {
           <label>Notes</label>
           <textarea id="ef-notes" class="input" rows="3" placeholder="Optional notes">${Utils.escapeHtml(exp.notes || '')}</textarea>
         </div>
-        <div class="form-group">
+        <div class="form-group" id="ef-receipt-section">
           <label>Receipt</label>
-          <input type="file" accept="image/*" capture="environment" id="ef-receipt" class="input">
+          <div class="receipt-capture-btns">
+            <button type="button" class="btn btn-secondary btn-sm" id="ef-take-photo">📷 Take Photo</button>
+            <button type="button" class="btn btn-secondary btn-sm" id="ef-choose-photo">🖼️ Choose File</button>
+            <button type="button" class="btn btn-secondary btn-sm" id="ef-scan-btn" style="display:none">🔍 Scan Receipt</button>
+          </div>
+          <input type="file" accept="image/*" capture="environment" id="ef-receipt-camera" style="display:none">
+          <input type="file" accept="image/*" id="ef-receipt-gallery" style="display:none">
           <div id="ef-receipt-preview" class="receipt-preview">
             ${exp.receipt_path ? `<img src="/api/expenses/${id}/receipt" alt="Receipt" class="receipt-thumb">` : ''}
           </div>
+          <div id="ef-scan-status" style="display:none"></div>
+          <div id="ef-scan-result" style="display:none"></div>
         </div>
         <div class="form-actions">
           <button type="button" class="btn btn-secondary" onclick="Router.navigate('#/expenses')">Cancel</button>
@@ -492,17 +500,121 @@ const ExpenseForm = (() => {
         </div>
       </form>`;
 
-    // Receipt preview
-    document.getElementById('ef-receipt').addEventListener('change', e => {
-      const file = e.target.files[0];
-      if (!file) return;
-      receiptFile = file;
-      const reader = new FileReader();
-      reader.onload = ev => {
-        document.getElementById('ef-receipt-preview').innerHTML = `<img src="${ev.target.result}" alt="Receipt preview" class="receipt-thumb">`;
-      };
-      reader.readAsDataURL(file);
-    });
+    // Receipt scanner setup
+    let receiptDataUrl = null;
+
+    function setupReceiptScanner() {
+      const cameraInput = document.getElementById('ef-receipt-camera');
+      const galleryInput = document.getElementById('ef-receipt-gallery');
+      const takePhotoBtn = document.getElementById('ef-take-photo');
+      const chooseBtn = document.getElementById('ef-choose-photo');
+      const scanBtn = document.getElementById('ef-scan-btn');
+      const preview = document.getElementById('ef-receipt-preview');
+      const statusEl = document.getElementById('ef-scan-status');
+      const resultEl = document.getElementById('ef-scan-result');
+
+      if (!cameraInput) return;
+
+      function handleFile(file) {
+        if (!file) return;
+        receiptFile = file;
+        const reader = new FileReader();
+        reader.onload = ev => {
+          receiptDataUrl = ev.target.result;
+          preview.innerHTML = `<img src="${receiptDataUrl}" alt="Receipt preview" class="receipt-thumb">`;
+          scanBtn.style.display = '';
+          statusEl.style.display = 'none';
+          resultEl.style.display = 'none';
+        };
+        reader.readAsDataURL(file);
+      }
+
+      takePhotoBtn.addEventListener('click', () => cameraInput.click());
+      chooseBtn.addEventListener('click', () => galleryInput.click());
+      cameraInput.addEventListener('change', e => handleFile(e.target.files[0]));
+      galleryInput.addEventListener('change', e => handleFile(e.target.files[0]));
+
+      scanBtn.addEventListener('click', async () => {
+        if (!receiptDataUrl || !window.ReceiptScanner) return;
+        scanBtn.disabled = true;
+        statusEl.style.display = '';
+        resultEl.style.display = 'none';
+
+        const stageLabels = {
+          enhancing: '✨ Enhancing image...',
+          scanning:  '🔍 Reading text...',
+          parsing:   '📋 Parsing receipt...',
+          done:      '✅ Done',
+          error:     '❌ Scan failed'
+        };
+
+        try {
+          statusEl.innerHTML = `<span class="scan-stage">✨ Enhancing image...</span>`;
+          const result = await window.ReceiptScanner.scanReceipt(receiptDataUrl, stage => {
+            statusEl.innerHTML = `<span class="scan-stage">${stageLabels[stage] || stage}</span>`;
+          });
+
+          const parsed = result.parsed || {};
+          const confidence = result.confidence;
+          const filled = [];
+
+          // Auto-fill empty fields
+          if (parsed.store) {
+            const vendorEl = document.getElementById('ef-vendor');
+            if (!vendorEl.value.trim()) { vendorEl.value = parsed.store; filled.push('vendor'); }
+          }
+          if (parsed.amount) {
+            const amountEl = document.getElementById('ef-amount');
+            if (!amountEl.value) { amountEl.value = parsed.amount; filled.push('amount'); }
+          }
+          if (parsed.date) {
+            const dateEl = document.getElementById('ef-date');
+            if (!dateEl.value || dateEl.value === Utils.formatDateInput(new Date().toISOString().slice(0,10))) {
+              dateEl.value = parsed.date;
+              filled.push('date');
+            }
+          }
+
+          // Map category from parsed
+          const catMap = { 'Materials': null, 'Gas': 'Vehicle & Fuel', 'Meals': 'Meals', 'Tools': 'Tools & Equipment' };
+          if (parsed.category && catMap[parsed.category]) {
+            const catEl = document.getElementById('ef-category');
+            const opts = Array.from(catEl.options);
+            const match = opts.find(o => o.text.includes(catMap[parsed.category]));
+            if (match && !catEl.value) { catEl.value = match.value; filled.push('category'); }
+          }
+
+          const confColor = { high: '#16A34A', medium: '#D97706', low: '#DC2626' };
+          const confLabel = confidence ? `<span style="color:${confColor[confidence.level]};font-weight:600">${confidence.level} confidence (${Math.round(confidence.score * 100)}%)</span>` : '';
+
+          let html = '';
+          if (filled.length > 0) {
+            html += `<div class="scan-filled">Filled: ${filled.join(', ')} ${confLabel}</div>`;
+          } else {
+            html += `<div class="scan-filled">Scan complete — fields already filled ${confLabel}</div>`;
+          }
+
+          if (parsed.items && parsed.items.length > 0) {
+            html += `<div class="scan-items"><strong>Items found (${parsed.items.length}):</strong><ul>`;
+            parsed.items.slice(0, 8).forEach(it => {
+              html += `<li>${Utils.escapeHtml(it.name)} — $${parseFloat(it.totalPrice || 0).toFixed(2)}</li>`;
+            });
+            if (parsed.items.length > 8) html += `<li>...and ${parsed.items.length - 8} more</li>`;
+            html += '</ul></div>';
+          }
+
+          resultEl.innerHTML = html;
+          resultEl.style.display = '';
+          statusEl.style.display = 'none';
+        } catch (err) {
+          statusEl.innerHTML = `<span class="scan-stage scan-error">❌ Scan failed: ${err.message}</span>`;
+        } finally {
+          scanBtn.disabled = false;
+        }
+      });
+    }
+
+    setupReceiptScanner();
 
     // Save
     document.getElementById('expense-form').addEventListener('submit', async e => {
