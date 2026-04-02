@@ -91,7 +91,7 @@
       margin-bottom: 6px;
     }
 
-    input[type="password"], input[type="text"] {
+    input[type="password"], input[type="text"], input[type="email"] {
       display: block;
       width: 100%;
       padding: 11px 14px;
@@ -191,9 +191,11 @@
       <p class="login-title">Welcome back</p>
       <p class="login-sub">Sign in to your account to continue.</p>
       <form id="login-form">
+        <label for="email">Email</label>
+        <input type="email" id="email" name="email" autocomplete="email" autofocus placeholder="you@example.com" style="margin-bottom:16px">
         <label for="password">Password</label>
-        <input type="password" id="password" name="password" autocomplete="current-password" autofocus placeholder="Enter your password">
-        <div class="login-error" id="login-error">Incorrect password. Please try again.</div>
+        <input type="password" id="password" name="password" autocomplete="current-password" placeholder="Enter your password">
+        <div class="login-error" id="login-error">Incorrect email or password.</div>
         <button type="submit" class="btn-signin" id="login-btn">Sign In</button>
       </form>
       <p class="login-footer">TradeBooks — Built for contractors</p>
@@ -212,18 +214,19 @@
       btn.textContent = 'Signing in...';
 
       try {
+        const email = document.getElementById('email').value;
         const password = document.getElementById('password').value;
         const res = await fetch('/api/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ password })
+          body: JSON.stringify({ email, password })
         });
 
         if (res.ok) {
           window.location.href = '/';
         } else {
           const data = await res.json().catch(() => ({}));
-          errorEl.textContent = data.error || 'Incorrect password';
+          errorEl.textContent = data.error || 'Incorrect email or password.';
           errorEl.classList.add('visible');
           // Trigger shake animation
           requestAnimationFrame(() => {

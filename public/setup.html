@@ -69,6 +69,8 @@
       display: block;
     }
 
+    .setup-form input[type="text"],
+    .setup-form input[type="email"],
     .setup-form input[type="password"] {
       width: 100%;
       padding: 0.75rem 1rem;
@@ -81,6 +83,8 @@
       transition: border-color 0.2s;
     }
 
+    .setup-form input[type="text"]:focus,
+    .setup-form input[type="email"]:focus,
     .setup-form input[type="password"]:focus {
       border-color: var(--border-focus);
       box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
@@ -140,21 +144,29 @@
       </svg>
       <h1>Welcome to TradeBooks</h1>
     </div>
-    <p class="setup-subtitle">Create a password to protect your financial data.</p>
+    <p class="setup-subtitle">Create your owner account to protect your financial data.</p>
 
     <div class="setup-error" id="setup-error"></div>
 
     <form class="setup-form" id="setup-form">
       <div>
+        <label for="name">Your Name</label>
+        <input type="text" id="name" name="name" autocomplete="name" required autofocus>
+      </div>
+      <div>
+        <label for="email">Email</label>
+        <input type="email" id="email" name="email" autocomplete="email" required>
+      </div>
+      <div>
         <label for="password">Password</label>
-        <input type="password" id="password" name="password" autocomplete="new-password" required autofocus>
+        <input type="password" id="password" name="password" autocomplete="new-password" required>
         <p class="setup-requirements">Minimum 8 characters</p>
       </div>
       <div>
         <label for="confirm">Confirm Password</label>
         <input type="password" id="confirm" name="confirm" autocomplete="new-password" required>
       </div>
-      <button type="submit" class="setup-btn" id="setup-btn">Set Password</button>
+      <button type="submit" class="setup-btn" id="setup-btn">Create Account</button>
     </form>
   </div>
 
@@ -176,8 +188,22 @@
       e.preventDefault();
       hideError();
 
+      const name = document.getElementById('name').value.trim();
+      const email = document.getElementById('email').value.trim();
       const password = document.getElementById('password').value;
       const confirm = document.getElementById('confirm').value;
+
+      if (!name) {
+        showError('Please enter your name.');
+        document.getElementById('name').focus();
+        return;
+      }
+
+      if (!email) {
+        showError('Please enter your email address.');
+        document.getElementById('email').focus();
+        return;
+      }
 
       if (password.length < 8) {
         showError('Password must be at least 8 characters.');
@@ -191,13 +217,13 @@
       }
 
       btn.disabled = true;
-      btn.textContent = 'Setting up...';
+      btn.textContent = 'Creating account...';
 
       try {
         const res = await fetch('/api/auth/setup', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ password })
+          body: JSON.stringify({ name, email, password })
         });
 
         if (res.ok) {
@@ -210,7 +236,7 @@
         showError('Connection error. Is the server running?');
       } finally {
         btn.disabled = false;
-        btn.textContent = 'Set Password';
+        btn.textContent = 'Create Account';
       }
     });
   </script>

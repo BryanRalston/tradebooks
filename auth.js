@@ -85,6 +85,10 @@ async function verifyPassword(password, hash) {
 }
 
 function isPasswordSet(db) {
+  try {
+    const row = db.prepare("SELECT COUNT(*) as cnt FROM users").get();
+    if (row.cnt > 0) return true;
+  } catch(e) {}
   const row = db.prepare("SELECT value FROM settings WHERE key = 'password_hash'").get();
   return !!(row && row.value);
 }
@@ -101,6 +105,38 @@ async function checkPassword(db, password) {
 }
 
 // ---------------------------------------------------------------------------
+// User-Based Auth Functions
+// ---------------------------------------------------------------------------
+async function createUser(db, { name, email, password, role }) {
+  const hash = await hashPassword(password);
+  return db.prepare(
+    "INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, ?)"
+  ).run(name, email.toLowerCase().trim(), hash, role || 'employee');
+}
+
+async function authenticateUser(db, email, password) {
+  const user = db.prepare(
+    "SELECT * FROM users WHERE email = ? AND active = 1"
+  ).get(email.toLowerCase().trim());
+  if (!user) return null;
+  const valid = await verifyPassword(password, user.password_hash);
+  if (!valid) return null;
+  return { id: user.id, name: user.name, email: user.email, role: user.role };
+}
+
+function getUserById(db, id) {
+  return db.prepare(
+    "SELECT id, name, email, role, active, created_at FROM users WHERE id = ?"
+  ).get(id);
+}
+
+function hasUsers(db) {
+  try {
+    return db.prepare("SELECT COUNT(*) as cnt FROM users").get().cnt > 0;
+  } catch(e) { return false; }
+}
+
+// ---------------------------------------------------------------------------
 // Auth Middleware
 // ---------------------------------------------------------------------------
 function requireAuth(req, res, next) {
@@ -110,12 +146,16 @@ function requireAuth(req, res, next) {
   // Skip login/setup pages
   if (req.path === '/login.html' || req.path === '/setup.html') return next();
 
+  // Skip public invoice view
+  if (req.path.startsWith('/invoice/view/')) return next();
+
   // Skip static assets
   if (req.path.match(/\.(css|js|png|jpg|jpeg|gif|svg|ico|woff|woff2|webmanifest|json)$/)) return next();
   if (req.path === '/sw.js' || req.path === '/manifest.json') return next();
 
-  // Check if authenticated
-  if (!req.session || !req.session.authenticated) {
+  // Check if authenticated (supports both old and new session types)
+  const isAuthenticated = !!(req.session?.userId || req.session?.authenticated);
+  if (!isAuthenticated) {
     if (req.path.startsWith('/api/')) {
       return res.status(401).json({ error: 'Not authenticated' });
     }
@@ -123,6 +163,17 @@ function requireAuth(req, res, next) {
   }
 
   next();
+}
+
+// ---------------------------------------------------------------------------
+// Role Helper
+// ---------------------------------------------------------------------------
+function getSessionRole(req) {
+  // New user-based sessions have explicit role
+  if (req.session?.role) return req.session.role;
+  // Legacy sessions (before multi-user) treated as owner
+  if (req.session?.authenticated) return 'owner';
+  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -135,5 +186,10 @@ module.exports = {
   isPasswordSet,
   setPassword,
   checkPassword,
-  requireAuth
+  createUser,
+  authenticateUser,
+  getUserById,
+  hasUsers,
+  requireAuth,
+  getSessionRole
 };

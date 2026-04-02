@@ -139,7 +139,41 @@ db.exec(`
     filed_years  TEXT DEFAULT '[]',
     created_at   TEXT DEFAULT (datetime('now'))
   );
+
+  CREATE TABLE IF NOT EXISTS users (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    name          TEXT NOT NULL,
+    email         TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    password_hash TEXT NOT NULL,
+    role          TEXT NOT NULL DEFAULT 'employee',
+    active        INTEGER DEFAULT 1,
+    created_at    TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS invoice_tokens (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    token      TEXT NOT NULL UNIQUE,
+    invoice_id INTEGER NOT NULL REFERENCES invoices(id) ON DELETE CASCADE,
+    expires_at TEXT NOT NULL,
+    created_at TEXT DEFAULT (datetime('now')),
+    viewed_at  TEXT
+  );
 `);
+
+// ── Migrate single-password auth to user-based auth ──────────────────
+try {
+  const userCount = db.prepare("SELECT COUNT(*) as cnt FROM users").get();
+  if (userCount.cnt === 0) {
+    const legacyHash = db.prepare("SELECT value FROM settings WHERE key = 'password_hash'").get();
+    if (legacyHash?.value) {
+      db.prepare("INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, ?)").run(
+        'Owner', 'owner@tradebooks.local', legacyHash.value, 'owner'
+      );
+    }
+  }
+} catch (e) {
+  // Silent — migration is best-effort
+}
 
 // ── Indexes ──────────────────────────────────────────────────────────
 db.exec(`

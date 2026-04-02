@@ -10,7 +10,7 @@ const rateLimit = require('express-rate-limit');
 const nodemailer = require('nodemailer');
 const { db, run, get, all, nextInvoiceNumber } = require('./db');
 const pdf = require('./pdf');
-const { SQLiteStore, isPasswordSet, setPassword, checkPassword } = require('./auth');
+const { SQLiteStore, isPasswordSet, setPassword, checkPassword, createUser, authenticateUser, getUserById, hasUsers, getSessionRole } = require('./auth');
 
 const app = express();
 const PORT = process.env.PORT || 3143;
@@ -63,8 +63,9 @@ app.use(session({
 
 // Intercept root path BEFORE static middleware to enforce setup/login
 app.get('/', (req, res, next) => {
-  if (!isPasswordSet(db)) return res.redirect('/setup.html');
-  if (!req.session?.authenticated) return res.redirect('/login.html');
+  if (!isPasswordSet(db) && !hasUsers(db)) return res.redirect('/setup.html');
+  const isAuthenticated = !!(req.session?.userId || req.session?.authenticated);
+  if (!isAuthenticated) return res.redirect('/login.html');
   next();
 });
 
@@ -93,16 +94,47 @@ const authLimiter = rateLimit({
 // Auth routes (no auth required)
 // ---------------------------------------------------------------------------
 app.post('/api/auth/setup', authLimiter, async (req, res) => {
-  if (isPasswordSet(db)) return res.status(403).json({ error: 'Password already configured' });
-  const { password } = req.body;
+  const { name, email, password } = req.body;
+  // Legacy path: no email provided — fall back to single-password setup
+  if (!email) {
+    if (isPasswordSet(db)) return res.status(403).json({ error: 'Password already configured' });
+    if (!password || password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    await setPassword(db, password);
+    req.session.authenticated = true;
+    return res.json({ success: true });
+  }
+  // New path: user-based setup
+  if (hasUsers(db)) return res.status(403).json({ error: 'Account already configured' });
+  if (!name || !name.trim()) return res.status(400).json({ error: 'Name is required' });
+  if (!email.includes('@')) return res.status(400).json({ error: 'Valid email required' });
   if (!password || password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
-  await setPassword(db, password);
-  req.session.authenticated = true;
-  res.json({ success: true });
+  try {
+    const result = await createUser(db, { name: name.trim(), email, password, role: 'owner' });
+    req.session.userId = result.lastInsertRowid;
+    req.session.role = 'owner';
+    req.session.userName = name.trim();
+    req.session.authenticated = true; // backward compat
+    res.json({ success: true });
+  } catch(e) {
+    if (e.message?.includes('UNIQUE')) return res.status(409).json({ error: 'Email already in use' });
+    res.status(500).json({ error: 'Setup failed' });
+  }
 });
 
 app.post('/api/auth/login', authLimiter, async (req, res) => {
-  const { password } = req.body;
+  const { email, password } = req.body;
+  // New path: user-based login
+  if (email) {
+    if (!password) return res.status(400).json({ error: 'Email and password required' });
+    const user = await authenticateUser(db, email, password);
+    if (!user) return res.status(401).json({ error: 'Incorrect email or password' });
+    req.session.userId = user.id;
+    req.session.role = user.role;
+    req.session.userName = user.name;
+    req.session.authenticated = true; // backward compat
+    return res.json({ success: true, user: { name: user.name, role: user.role } });
+  }
+  // Legacy path: single-password login
   if (!password) return res.status(400).json({ error: 'Password required' });
   const valid = await checkPassword(db, password);
   if (!valid) return res.status(401).json({ error: 'Incorrect password' });
@@ -121,9 +153,16 @@ app.post('/api/auth/logout', (req, res) => {
 app.get('/api/status', (req, res) => res.json({ status: 'ok' }));
 
 app.get('/api/auth/status', (req, res) => {
+  const authenticated = !!(req.session?.userId || req.session?.authenticated);
+  const role = getSessionRole(req);
   res.json({
-    authenticated: !!req.session?.authenticated,
-    passwordSet: isPasswordSet(db)
+    authenticated,
+    passwordSet: isPasswordSet(db),
+    user: authenticated ? {
+      id: req.session.userId || null,
+      name: req.session.userName || 'Owner',
+      role: role || 'owner'
+    } : null
   });
 });
 
@@ -134,22 +173,108 @@ app.use((req, res, next) => {
   // Skip static files and auth endpoints
   if (req.path.startsWith('/api/auth')) return next();
   if (req.path === '/login.html' || req.path === '/setup.html') return next();
+  if (req.path.startsWith('/invoice/view/')) return next(); // public invoice view
   if (req.path.match(/\.(css|js|png|jpg|jpeg|gif|svg|ico|woff|woff2|webmanifest|json)$/)) return next();
   if (req.path === '/sw.js' || req.path === '/manifest.json') return next();
 
-  // Check if password is set
-  if (!isPasswordSet(db)) {
+  // Check if setup has been done
+  if (!isPasswordSet(db) && !hasUsers(db)) {
     if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'Setup required' });
     return res.redirect('/setup.html');
   }
 
-  // Check if authenticated
-  if (!req.session?.authenticated) {
+  // Check if authenticated (supports both old and new session types)
+  const isAuthenticated = !!(req.session?.userId || req.session?.authenticated);
+  if (!isAuthenticated) {
     if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'Not authenticated' });
     return res.redirect('/login.html');
   }
 
   next();
+});
+
+// ---------------------------------------------------------------------------
+// Role-based access control
+// ---------------------------------------------------------------------------
+app.use('/api/', (req, res, next) => {
+  // Skip auth endpoints
+  if (req.path.startsWith('/auth/')) return next();
+
+  const role = getSessionRole(req);
+
+  // Accountant: read-only (GET only)
+  if (role === 'accountant' && req.method !== 'GET') {
+    return res.status(403).json({ error: 'Your account has read-only access' });
+  }
+
+  // Employee: limited to expenses, jobs, clients, categories, dashboard, status
+  if (role === 'employee') {
+    const allowed = ['/expenses', '/jobs', '/clients', '/categories', '/dashboard', '/status', '/settings']
+      .some(p => req.path.startsWith(p));
+    if (!allowed) return res.status(403).json({ error: 'Access denied for your role' });
+  }
+
+  next();
+});
+
+// ---------------------------------------------------------------------------
+// User Management (owner only)
+// ---------------------------------------------------------------------------
+app.get('/api/users', (req, res) => {
+  if (getSessionRole(req) !== 'owner') return res.status(403).json({ error: 'Owner access required' });
+  const users = db.prepare("SELECT id, name, email, role, active, created_at FROM users ORDER BY created_at").all();
+  res.json(users);
+});
+
+app.post('/api/users', async (req, res) => {
+  if (getSessionRole(req) !== 'owner') return res.status(403).json({ error: 'Owner access required' });
+  const { name, email, password, role } = req.body;
+  if (!name?.trim()) return res.status(400).json({ error: 'Name is required' });
+  if (!email?.includes('@')) return res.status(400).json({ error: 'Valid email required' });
+  if (!password || password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
+  const validRoles = ['owner', 'accountant', 'employee'];
+  if (!validRoles.includes(role)) return res.status(400).json({ error: 'Invalid role' });
+  try {
+    const result = await createUser(db, { name: name.trim(), email, password, role });
+    res.json({ success: true, id: result.lastInsertRowid });
+  } catch(e) {
+    if (e.message?.includes('UNIQUE')) return res.status(409).json({ error: 'Email already in use' });
+    res.status(500).json({ error: 'Failed to create user' });
+  }
+});
+
+app.put('/api/users/:id', async (req, res) => {
+  const role = getSessionRole(req);
+  const targetId = parseInt(req.params.id);
+  const isSelf = req.session.userId === targetId;
+  if (role !== 'owner' && !isSelf) return res.status(403).json({ error: 'Access denied' });
+
+  const { name, email, password, active } = req.body;
+  // Non-owners can only change their own password
+  if (role !== 'owner' && (name || email || active !== undefined)) {
+    return res.status(403).json({ error: 'You can only change your password' });
+  }
+
+  if (password) {
+    if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    const bcrypt = require('bcryptjs');
+    const hash = await bcrypt.hash(password, 12);
+    db.prepare("UPDATE users SET password_hash = ? WHERE id = ?").run(hash, targetId);
+  }
+  if (role === 'owner') {
+    if (name) db.prepare("UPDATE users SET name = ? WHERE id = ?").run(name.trim(), targetId);
+    if (email) db.prepare("UPDATE users SET email = ? WHERE id = ?").run(email.toLowerCase().trim(), targetId);
+    if (active !== undefined) db.prepare("UPDATE users SET active = ? WHERE id = ?").run(active ? 1 : 0, targetId);
+  }
+  res.json({ success: true });
+});
+
+app.delete('/api/users/:id', (req, res) => {
+  if (getSessionRole(req) !== 'owner') return res.status(403).json({ error: 'Owner access required' });
+  const targetId = parseInt(req.params.id);
+  if (req.session.userId === targetId) return res.status(400).json({ error: 'Cannot delete your own account' });
+  db.prepare("DELETE FROM users WHERE id = ?").run(targetId);
+  res.json({ success: true });
 });
 
 // ---------------------------------------------------------------------------
@@ -1348,6 +1473,148 @@ app.post('/api/invoices/from-job/:jobId', async (req, res) => {
     console.error('POST /api/invoices/from-job/:jobId error:', err);
     res.status(500).json({ error: err.message });
   }
+});
+
+// ===========================================================================
+// INVOICE SHARING
+// ===========================================================================
+app.post('/api/invoices/:id/share', (req, res) => {
+  const invoice = get('SELECT * FROM invoices WHERE id = ?', [req.params.id]);
+  if (!invoice) return res.status(404).json({ error: 'Invoice not found' });
+
+  const token = crypto.randomBytes(32).toString('hex');
+  const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+
+  db.prepare("INSERT INTO invoice_tokens (token, invoice_id, expires_at) VALUES (?, ?, ?)").run(token, invoice.id, expiresAt);
+
+  const baseUrl = req.protocol + '://' + req.get('host');
+  res.json({ url: `${baseUrl}/invoice/view/${token}`, expires_at: expiresAt });
+});
+
+app.get('/invoice/view/:token', (req, res) => {
+  const row = db.prepare("SELECT it.*, i.* FROM invoice_tokens it JOIN invoices i ON i.id = it.invoice_id WHERE it.token = ?").get(req.params.token);
+
+  if (!row) return res.status(404).send('<h2>Link not found</h2>');
+  if (new Date(row.expires_at) < new Date()) return res.status(410).send(`
+    <!DOCTYPE html><html><head><title>Link Expired</title><meta name="viewport" content="width=device-width,initial-scale=1">
+    <style>body{font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;background:#F8FAFC;}
+    .box{text-align:center;padding:40px;background:white;border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,0.1);max-width:400px;}
+    h2{color:#0F172A;margin:0 0 8px}p{color:#64748B;margin:0}</style>
+    </head><body><div class="box"><h2>Link Expired</h2><p>This invoice link expired on ${new Date(row.expires_at).toLocaleDateString()}.</p></div></body></html>`);
+
+  // Mark as viewed
+  db.prepare("UPDATE invoice_tokens SET viewed_at = datetime('now') WHERE token = ?").run(req.params.token);
+
+  // Fetch full invoice data
+  const invoice = get('SELECT i.*, c.name as client_name, c.email as client_email, c.address as client_address, c.phone as client_phone FROM invoices i LEFT JOIN clients c ON c.id = i.client_id WHERE i.id = ?', [row.invoice_id]);
+  const items = all('SELECT * FROM invoice_items WHERE invoice_id = ? ORDER BY sort_order, id', [row.invoice_id]);
+  const settings = {};
+  all('SELECT key, value FROM settings').forEach(r => { settings[r.key] = r.value; });
+
+  const formatCurrency = (n) => '$' + (parseFloat(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const formatDate = (d) => d ? new Date(d + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '';
+
+  const statusColor = invoice.status === 'paid' ? '#16A34A' : invoice.status === 'overdue' ? '#DC2626' : '#2563EB';
+  const statusBg = invoice.status === 'paid' ? '#DCFCE7' : invoice.status === 'overdue' ? '#FEE2E2' : '#DBEAFE';
+
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-Frame-Options" content="DENY">
+  <title>Invoice ${invoice.invoice_number} — ${settings.business_name || 'TradeBooks'}</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, 'Inter', BlinkMacSystemFont, sans-serif; background: #F1F5F9; color: #0F172A; -webkit-font-smoothing: antialiased; }
+    .page { max-width: 720px; margin: 32px auto; padding: 0 16px 48px; }
+    .card { background: white; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); overflow: hidden; }
+    .header { background: #0F172A; padding: 32px 40px; position: relative; overflow: hidden; }
+    .header::before { content: ''; position: absolute; left: 0; top: 0; width: 6px; height: 100%; background: #2563EB; }
+    .header-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+    .biz-name { font-size: 22px; font-weight: 700; color: white; letter-spacing: -0.02em; }
+    .biz-sub { font-size: 13px; color: #94A3B8; margin-top: 4px; }
+    .invoice-label { text-align: right; }
+    .invoice-label .word { font-size: 28px; font-weight: 800; color: white; letter-spacing: 0.05em; }
+    .invoice-label .num { font-size: 14px; color: #94A3B8; margin-top: 2px; }
+    .status-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; background: ${statusBg}; color: ${statusColor}; margin-top: 8px; }
+    .body { padding: 32px 40px; }
+    .meta-row { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 28px; }
+    .meta-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: #94A3B8; margin-bottom: 4px; }
+    .meta-val { font-size: 14px; color: #0F172A; line-height: 1.5; }
+    .meta-val strong { font-weight: 600; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+    thead th { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: #94A3B8; padding: 10px 12px; text-align: left; background: #F8FAFC; border-bottom: 1px solid #E2E8F0; }
+    thead th:last-child, thead th:nth-child(2), thead th:nth-child(3) { text-align: right; }
+    tbody td { padding: 12px 12px; font-size: 14px; border-bottom: 1px solid #F1F5F9; }
+    tbody td:last-child, tbody td:nth-child(2), tbody td:nth-child(3) { text-align: right; font-variant-numeric: tabular-nums; }
+    .totals { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; padding: 16px 0; }
+    .totals-row { display: flex; gap: 40px; font-size: 14px; }
+    .totals-row .lbl { color: #64748B; }
+    .totals-row .val { min-width: 100px; text-align: right; font-variant-numeric: tabular-nums; }
+    .totals-row.total { font-size: 17px; font-weight: 700; border-top: 2px solid #E2E8F0; padding-top: 10px; margin-top: 4px; }
+    .notes { margin-top: 24px; padding: 16px; background: #F8FAFC; border-radius: 8px; border-left: 3px solid #E2E8F0; font-size: 13px; color: #475569; line-height: 1.6; }
+    .footer { text-align: center; margin-top: 28px; font-size: 12px; color: #94A3B8; }
+    .download-btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; background: #2563EB; color: white; font-size: 13px; font-weight: 600; border-radius: 8px; text-decoration: none; margin-top: 20px; }
+    .download-btn:hover { background: #1D4ED8; }
+    @media (max-width: 600px) {
+      .page { margin: 0; padding: 0 0 32px; }
+      .card { border-radius: 0; }
+      .header, .body { padding: 24px 20px; }
+      .meta-row { grid-template-columns: 1fr; gap: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="card">
+      <div class="header">
+        <div class="header-row">
+          <div>
+            <div class="biz-name">${settings.business_name || 'Your Business'}</div>
+            <div class="biz-sub">${[settings.business_address, settings.business_city, settings.business_state].filter(Boolean).join(', ') || ''}</div>
+            ${settings.business_phone ? `<div class="biz-sub">${settings.business_phone}</div>` : ''}
+            ${settings.business_email ? `<div class="biz-sub">${settings.business_email}</div>` : ''}
+          </div>
+          <div class="invoice-label">
+            <div class="word">INVOICE</div>
+            <div class="num">#${invoice.invoice_number}</div>
+            <div><span class="status-badge">${invoice.status.toUpperCase()}</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="body">
+        <div class="meta-row">
+          <div>
+            <div class="meta-label">Bill To</div>
+            <div class="meta-val"><strong>${invoice.client_name || 'Client'}</strong>${invoice.client_address ? '<br>' + invoice.client_address : ''}${invoice.client_email ? '<br>' + invoice.client_email : ''}${invoice.client_phone ? '<br>' + invoice.client_phone : ''}</div>
+          </div>
+          <div>
+            <div class="meta-label">Invoice Details</div>
+            <div class="meta-val">Issue: ${formatDate(invoice.issue_date)}<br>Due: ${formatDate(invoice.due_date) || 'On Receipt'}${invoice.paid_date ? '<br>Paid: ' + formatDate(invoice.paid_date) : ''}</div>
+          </div>
+        </div>
+        <table>
+          <thead><tr><th>Description</th><th>Qty</th><th>Rate</th><th>Amount</th></tr></thead>
+          <tbody>
+            ${items.map(item => `<tr><td>${item.description || ''}</td><td>${item.quantity || 1}</td><td>${formatCurrency(item.unit_price || item.rate || 0)}</td><td>${formatCurrency(item.amount || (item.quantity || 1) * (item.unit_price || item.rate || 0))}</td></tr>`).join('')}
+          </tbody>
+        </table>
+        <div class="totals">
+          <div class="totals-row"><span class="lbl">Subtotal</span><span class="val">${formatCurrency(invoice.subtotal)}</span></div>
+          ${invoice.tax_amount > 0 ? `<div class="totals-row"><span class="lbl">Tax (${invoice.tax_rate}%)</span><span class="val">${formatCurrency(invoice.tax_amount)}</span></div>` : ''}
+          <div class="totals-row total"><span class="lbl">Total</span><span class="val">${formatCurrency(invoice.total)}</span></div>
+        </div>
+        ${invoice.notes ? `<div class="notes">${invoice.notes}</div>` : ''}
+        <div style="text-align:center">
+          <a href="/api/invoices/${invoice.id}/pdf" class="download-btn">&#8595; Download PDF</a>
+        </div>
+      </div>
+    </div>
+    <div class="footer">Powered by TradeBooks &middot; Link expires ${new Date(row.expires_at).toLocaleDateString()}</div>
+  </div>
+</body>
+</html>`);
 });
 
 // ===========================================================================

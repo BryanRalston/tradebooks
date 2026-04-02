@@ -1689,6 +1689,7 @@ const InvoiceForm = (() => {
           ${isEdit && inv.status === 'sent'  ? `<button type="button" class="btn btn-primary" id="inv-mark-paid">Mark as Paid</button>` : ''}
           ${isEdit ? `<button type="button" class="btn btn-secondary" id="inv-pdf">Download PDF</button>` : ''}
           ${isEdit ? `<button type="button" class="btn btn-secondary" id="inv-email-btn">✉️ Send to Client</button>` : ''}
+          ${isEdit ? `<button type="button" class="btn btn-secondary" id="btn-share-invoice"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-3px;margin-right:4px"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>Share</button>` : ''}
         </div>
       </form>`;
 
@@ -1737,6 +1738,40 @@ const InvoiceForm = (() => {
         emailBtn.textContent = '✉️ Send to Client';
       });
     }
+    const shareBtn = document.getElementById('btn-share-invoice');
+    if (shareBtn) {
+      shareBtn.addEventListener('click', async () => {
+        shareBtn.disabled = true;
+        shareBtn.textContent = 'Generating...';
+        const result = await API.post(`/api/invoices/${id}/share`, {});
+        shareBtn.disabled = false;
+        shareBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-3px;margin-right:4px"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>Share';
+        if (result) {
+          const { url, expires_at } = result;
+          Utils.showModal('Share Invoice', `
+            <div>
+              <p style="color:var(--text-secondary);font-size:14px;margin-bottom:16px">
+                Share this secure link with your client. It expires in 30 days and gives read-only access to this invoice only.
+              </p>
+              <div style="display:flex;gap:8px">
+                <input type="text" class="input" id="share-url-input" value="${Utils.escapeHtml(url)}" readonly style="flex:1;font-size:13px">
+                <button class="btn btn-primary" id="copy-share-url">Copy</button>
+              </div>
+              <p style="margin-top:10px;font-size:12px;color:var(--text-muted)">Expires: ${new Date(expires_at).toLocaleDateString()}</p>
+            </div>
+          `);
+          setTimeout(() => {
+            const copyBtn = document.getElementById('copy-share-url');
+            if (copyBtn) {
+              copyBtn.addEventListener('click', () => {
+                navigator.clipboard.writeText(url).then(() => Utils.toast('Link copied!', 'success'));
+              });
+            }
+          }, 0);
+        }
+      });
+    }
+
     const deleteBtn = document.getElementById('inv-delete');
     if (deleteBtn) deleteBtn.addEventListener('click', async () => {
       if (await Utils.confirm('Delete this invoice?')) {
@@ -2137,15 +2172,43 @@ const Settings = (() => {
     const main = document.getElementById('main-content');
     main.innerHTML = loadingHtml();
 
-    const [settings, categories] = await Promise.all([
+    const [settings, categories, users] = await Promise.all([
       API.get('/api/settings'),
-      API.get('/api/categories')
+      API.get('/api/categories'),
+      window.currentUser?.role === 'owner' ? API.get('/api/users') : Promise.resolve(null)
     ]);
     const s = settings || {};
     const cats = Array.isArray(categories) ? categories : (categories?.categories || []);
 
+    const teamCardHtml = (Array.isArray(users) && window.currentUser?.role === 'owner') ? `
+      <div class="card" style="margin-bottom:24px">
+        <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
+          <h2 class="card-title">Team</h2>
+          <button class="btn btn-primary btn-sm" id="btn-invite-user">+ Add User</button>
+        </div>
+        <div class="card-body" style="padding:0">
+          <table class="data-table">
+            <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+              ${users.map(u => `
+                <tr>
+                  <td>${Utils.escapeHtml(u.name)}</td>
+                  <td style="color:var(--text-secondary)">${Utils.escapeHtml(u.email)}</td>
+                  <td><span class="badge ${u.role === 'owner' ? 'badge-blue' : u.role === 'accountant' ? 'badge-amber' : 'badge-green'}">${u.role}</span></td>
+                  <td><span class="badge ${u.active ? 'badge-green' : 'badge-gray'}">${u.active ? 'Active' : 'Inactive'}</span></td>
+                  <td style="text-align:right">
+                    ${u.role !== 'owner' ? `<button class="btn btn-sm btn-secondary remove-user-btn" data-id="${u.id}">Remove</button>` : ''}
+                  </td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>` : '';
+
     main.innerHTML = `
       <div class="page-header"><h1>Settings</h1></div>
+
+      ${teamCardHtml}
 
       <div class="card" style="margin-bottom:1.5rem;">
         <div class="card-header"><h2>Business Information</h2></div>
@@ -2219,6 +2282,72 @@ const Settings = (() => {
 
     // Render categories
     renderCategories(cats);
+
+    // Team section — Add User
+    const inviteBtn = document.getElementById('btn-invite-user');
+    if (inviteBtn) {
+      inviteBtn.addEventListener('click', () => {
+        Utils.showModal('Add Team Member', `
+          <form id="user-form">
+            <div class="form-group">
+              <label class="form-label">Name</label>
+              <input type="text" class="input" id="u-name" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Email</label>
+              <input type="email" class="input" id="u-email" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Password</label>
+              <input type="password" class="input" id="u-password" minlength="8" required>
+              <div class="form-hint">Minimum 8 characters</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Role</label>
+              <select class="input" id="u-role">
+                <option value="employee">Employee — Can log expenses and view jobs</option>
+                <option value="accountant">Accountant — Read-only access to all data</option>
+                <option value="owner">Owner — Full access</option>
+              </select>
+            </div>
+            <div class="form-actions">
+              <button type="button" class="btn btn-secondary" onclick="Utils.closeModal()">Cancel</button>
+              <button type="submit" class="btn btn-primary">Create Account</button>
+            </div>
+          </form>
+        `);
+        setTimeout(() => {
+          document.getElementById('user-form').addEventListener('submit', async ev => {
+            ev.preventDefault();
+            const res = await API.post('/api/users', {
+              name:     document.getElementById('u-name').value.trim(),
+              email:    document.getElementById('u-email').value.trim(),
+              password: document.getElementById('u-password').value,
+              role:     document.getElementById('u-role').value
+            });
+            if (res) {
+              Utils.closeModal();
+              Utils.toast('User created', 'success');
+              render();
+            }
+          });
+        }, 0);
+      });
+    }
+
+    // Team section — Remove User buttons
+    document.querySelectorAll('.remove-user-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const uid = btn.dataset.id;
+        if (await Utils.confirm('Remove this user? They will no longer be able to sign in.')) {
+          const res = await API.del(`/api/users/${uid}`);
+          if (res !== null) {
+            Utils.toast('User removed', 'success');
+            render();
+          }
+        }
+      });
+    });
 
     // Save settings
     document.getElementById('settings-form').addEventListener('submit', async e => {
@@ -3072,6 +3201,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Init router (listen + dispatch initial route)
   Router.init();
+
+  // Fetch and store current user info
+  window.currentUser = { role: 'owner', name: 'Owner' }; // default
+  fetch('/api/auth/status').then(r => r.json()).then(data => {
+    if (data.user) window.currentUser = data.user;
+  }).catch(() => {});
 
   // Check onboarding status
   Onboarding.checkAndShow();
