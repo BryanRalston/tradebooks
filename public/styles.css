@@ -3309,3 +3309,70 @@ a.list-item {
 .scan-items { margin-top: 8px; padding: 8px 12px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 6px; font-size: 12px; }
 .scan-items ul { margin: 6px 0 0 16px; padding: 0; }
 .scan-items li { margin-bottom: 2px; color: #475569; }
+
+/* ==========================================================================
+   Compliance Suite
+   ========================================================================== */
+
+.compliance-section { background: white; border-radius: 12px; padding: 24px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.section-title { font-size: 16px; font-weight: 700; margin: 0 0 16px; color: #1E293B; }
+.page-subtitle { font-size: 14px; color: #64748B; margin-left: 12px; }
+.compliance-summary-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
+.compliance-card { background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 16px; text-align: center; }
+.compliance-card-green { background: #F0FDF4; border-color: #BBF7D0; }
+.compliance-card-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: #64748B; margin-bottom: 6px; }
+.compliance-card-value { font-size: 22px; font-weight: 700; color: #1E293B; font-variant-numeric: tabular-nums; }
+.compliance-card-green .compliance-card-value { color: #16A34A; }
+.compliance-note { font-size: 13px; color: #64748B; background: #F8FAFC; border-left: 3px solid #2563EB; padding: 8px 12px; border-radius: 0 6px 6px 0; margin-bottom: 16px; }
+.compliance-disclaimer { font-size: 12px; color: #94A3B8; font-style: italic; margin-bottom: 12px; }
+
+/* Quarter cards */
+.quarter-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+.quarter-card { border-radius: 10px; padding: 16px; text-align: center; border: 1px solid; }
+.quarter-card.q-past { background: #FFF7ED; border-color: #FED7AA; }
+.quarter-card.q-near { background: #FEF2F2; border-color: #FECACA; }
+.quarter-card.q-future { background: #F8FAFC; border-color: #E2E8F0; }
+.quarter-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #64748B; }
+.quarter-due { font-size: 12px; color: #64748B; margin: 4px 0; }
+.quarter-amount { font-size: 20px; font-weight: 700; color: #1E293B; margin: 6px 0; font-variant-numeric: tabular-nums; }
+.quarter-status { font-size: 11px; font-weight: 600; }
+.q-past .quarter-status { color: #D97706; }
+.q-near .quarter-status { color: #DC2626; }
+.q-future .quarter-status { color: #64748B; }
+
+/* Tax breakdown */
+.tax-breakdown { border: 1px solid #E2E8F0; border-radius: 8px; overflow: hidden; }
+.tax-row { display: flex; justify-content: space-between; padding: 10px 16px; border-bottom: 1px solid #F1F5F9; font-size: 14px; }
+.tax-row:last-child { border-bottom: none; }
+.tax-row-total { background: #F8FAFC; font-weight: 700; }
+.tax-row .num { font-variant-numeric: tabular-nums; font-weight: 600; }
+
+/* Alert banners */
+.alert-banner { padding: 10px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; margin-bottom: 8px; }
+.alert-warning { background: #FFF7ED; border: 1px solid #FED7AA; color: #C2410C; }
+
+/* Badges */
+.badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 700; }
+.badge-green { background: #F0FDF4; color: #16A34A; border: 1px solid #BBF7D0; }
+.badge-red { background: #FEF2F2; color: #DC2626; border: 1px solid #FECACA; }
+.badge-gray { background: #F8FAFC; color: #64748B; border: 1px solid #E2E8F0; }
+
+/* Settings sections */
+.settings-section-title { font-size: 14px; font-weight: 700; color: #1E293B; margin: 24px 0 12px; padding-top: 16px; border-top: 1px solid #E2E8F0; }
+
+/* Misc */
+.green-text { color: #16A34A; }
+.red-text { color: #DC2626; }
+.checkbox-group label { display: flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; }
+.checkbox-group input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; }
+.empty-cell { text-align: center; padding: 32px; color: #94A3B8; font-size: 14px; }
+.num-cell { text-align: right; font-variant-numeric: tabular-nums; }
+
+@media (max-width: 768px) {
+  .compliance-summary-cards { grid-template-columns: 1fr 1fr; }
+  .quarter-grid { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 480px) {
+  .compliance-summary-cards { grid-template-columns: 1fr; }
+  .quarter-grid { grid-template-columns: 1fr; }
+}

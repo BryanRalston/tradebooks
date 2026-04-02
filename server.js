@@ -7,6 +7,7 @@ const multer = require('multer');
 const session = require('express-session');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const nodemailer = require('nodemailer');
 const { db, run, get, all, nextInvoiceNumber } = require('./db');
 const pdf = require('./pdf');
 const { SQLiteStore, isPasswordSet, setPassword, checkPassword } = require('./auth');
@@ -248,6 +249,11 @@ app.get('/api/settings', async (req, res) => {
     const settings = {};
     for (const row of rows) {
       if (hiddenKeys.includes(row.key)) continue;
+      // Never expose smtp_pass — return masked indicator if set
+      if (row.key === 'smtp_pass') {
+        settings[row.key] = row.value ? '••••' : '';
+        continue;
+      }
       settings[row.key] = row.value;
     }
     res.json(settings);
@@ -263,6 +269,8 @@ app.put('/api/settings', async (req, res) => {
     const pairs = req.body;
     for (const [key, value] of Object.entries(pairs)) {
       if (protectedKeys.includes(key)) continue; // Don't allow overwriting security keys
+      // If smtp_pass is the masked sentinel, don't overwrite the stored value
+      if (key === 'smtp_pass' && value === '••••') continue;
       await run(
         'INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = ?',
         [key, value, value]
@@ -714,6 +722,7 @@ app.get('/api/expenses/:id', async (req, res) => {
 app.post('/api/expenses', async (req, res) => {
   try {
     const { date, amount, vendor, category_id, job_id, notes } = req.body;
+    const is_subcontractor = req.body.is_subcontractor ? 1 : 0;
     const payment_method = (req.body.payment_method || '').toLowerCase();
     const vErrors = validate({ ...req.body, payment_method }, {
       date: { required: true, date: true },
@@ -725,9 +734,9 @@ app.post('/api/expenses', async (req, res) => {
     if (vErrors) return res.status(400).json({ error: vErrors.join('; ') });
 
     const result = await run(
-      `INSERT INTO expenses (date, amount, vendor, category_id, job_id, payment_method, notes)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [date, amount, vendor || null, category_id || null, job_id || null, payment_method || null, notes || null]
+      `INSERT INTO expenses (date, amount, vendor, category_id, job_id, payment_method, notes, is_subcontractor)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [date, amount, vendor || null, category_id || null, job_id || null, payment_method || null, notes || null, is_subcontractor]
     );
     const expense = await get('SELECT * FROM expenses WHERE id = ?', [result.lastInsertRowid]);
     res.status(201).json(expense);
@@ -744,9 +753,10 @@ app.put('/api/expenses/:id', async (req, res) => {
 
     const { date, amount, vendor, category_id, job_id, notes } = req.body;
     const payment_method = req.body.payment_method !== undefined ? req.body.payment_method.toLowerCase() : undefined;
+    const is_subcontractor = req.body.is_subcontractor !== undefined ? (req.body.is_subcontractor ? 1 : 0) : existing.is_subcontractor;
     await run(
       `UPDATE expenses SET date = ?, amount = ?, vendor = ?, category_id = ?, job_id = ?,
-       payment_method = ?, notes = ? WHERE id = ?`,
+       payment_method = ?, notes = ?, is_subcontractor = ? WHERE id = ?`,
       [
         date !== undefined ? date : existing.date,
         amount !== undefined ? amount : existing.amount,
@@ -755,6 +765,7 @@ app.put('/api/expenses/:id', async (req, res) => {
         job_id !== undefined ? job_id : existing.job_id,
         payment_method !== undefined ? payment_method : existing.payment_method,
         notes !== undefined ? notes : existing.notes,
+        is_subcontractor,
         req.params.id
       ]
     );
@@ -1921,6 +1932,473 @@ app.post('/api/onboarding/complete', async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     console.error('POST /api/onboarding/complete error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ===========================================================================
+// MILEAGE LOG
+// ===========================================================================
+
+// GET /api/mileage — list trips, optional ?from=&to=&job_id=
+app.get('/api/mileage', async (req, res) => {
+  try {
+    const year = new Date().getFullYear();
+    const from = req.query.from || `${year}-01-01`;
+    const to   = req.query.to   || `${year}-12-31`;
+
+    let sql = `SELECT m.*, j.name as job_name
+               FROM mileage_trips m
+               LEFT JOIN jobs j ON m.job_id = j.id
+               WHERE m.date >= ? AND m.date <= ?`;
+    const params = [from, to];
+
+    if (req.query.job_id) {
+      sql += ' AND m.job_id = ?';
+      params.push(req.query.job_id);
+    }
+    sql += ' ORDER BY m.date DESC';
+
+    const rows = await all(sql, params);
+    res.json(rows);
+  } catch (err) {
+    console.error('GET /api/mileage error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/mileage/summary — totals for ?year=YYYY
+app.get('/api/mileage/summary', async (req, res) => {
+  try {
+    const year = req.query.year || new Date().getFullYear();
+    const from = `${year}-01-01`;
+    const to   = `${year}-12-31`;
+
+    const trips = await all(
+      'SELECT * FROM mileage_trips WHERE date >= ? AND date <= ? ORDER BY date DESC',
+      [from, to]
+    );
+
+    const irsRow = await get("SELECT value FROM settings WHERE key = 'irs_mileage_rate'");
+    const irsRate = parseFloat(irsRow?.value || '0.70');
+
+    let totalMiles = 0;
+    for (const t of trips) {
+      totalMiles += t.round_trip ? t.miles * 2 : t.miles;
+    }
+    const deductionAmount = Math.round(totalMiles * irsRate * 100) / 100;
+
+    res.json({
+      year: Number(year),
+      totalMiles: Math.round(totalMiles * 100) / 100,
+      deductionAmount,
+      irsRate,
+      trips
+    });
+  } catch (err) {
+    console.error('GET /api/mileage/summary error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/mileage — create trip
+app.post('/api/mileage', async (req, res) => {
+  try {
+    const { date, destination, purpose, miles, job_id, round_trip } = req.body;
+    const vErrors = validate(req.body, {
+      date:        { required: true, date: true },
+      destination: { required: true, type: 'string', maxLength: 500 },
+      purpose:     { required: true, type: 'string', maxLength: 500 },
+      miles:       { required: true, type: 'number', min: 0.1 }
+    });
+    if (vErrors) return res.status(400).json({ error: vErrors.join('; ') });
+
+    const result = await run(
+      `INSERT INTO mileage_trips (date, destination, purpose, miles, job_id, round_trip)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [date, destination, purpose, miles, job_id || null, round_trip ? 1 : 0]
+    );
+    const trip = await get('SELECT * FROM mileage_trips WHERE id = ?', [result.lastInsertRowid]);
+    res.status(201).json(trip);
+  } catch (err) {
+    console.error('POST /api/mileage error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PUT /api/mileage/:id — update trip
+app.put('/api/mileage/:id', async (req, res) => {
+  try {
+    const existing = await get('SELECT * FROM mileage_trips WHERE id = ?', [req.params.id]);
+    if (!existing) return res.status(404).json({ error: 'Trip not found' });
+
+    const { date, destination, purpose, miles, job_id, round_trip } = req.body;
+    await run(
+      `UPDATE mileage_trips SET date = ?, destination = ?, purpose = ?, miles = ?,
+       job_id = ?, round_trip = ? WHERE id = ?`,
+      [
+        date        !== undefined ? date        : existing.date,
+        destination !== undefined ? destination : existing.destination,
+        purpose     !== undefined ? purpose     : existing.purpose,
+        miles       !== undefined ? miles       : existing.miles,
+        job_id      !== undefined ? (job_id || null) : existing.job_id,
+        round_trip  !== undefined ? (round_trip ? 1 : 0) : existing.round_trip,
+        req.params.id
+      ]
+    );
+    const updated = await get('SELECT * FROM mileage_trips WHERE id = ?', [req.params.id]);
+    res.json(updated);
+  } catch (err) {
+    console.error('PUT /api/mileage/:id error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE /api/mileage/:id — delete trip
+app.delete('/api/mileage/:id', async (req, res) => {
+  try {
+    const existing = await get('SELECT * FROM mileage_trips WHERE id = ?', [req.params.id]);
+    if (!existing) return res.status(404).json({ error: 'Trip not found' });
+
+    await run('DELETE FROM mileage_trips WHERE id = ?', [req.params.id]);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('DELETE /api/mileage/:id error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ===========================================================================
+// QUARTERLY TAX ESTIMATOR
+// ===========================================================================
+
+app.get('/api/tax/quarterly-estimate', async (req, res) => {
+  try {
+    const year = req.query.year || new Date().getFullYear();
+    const from = `${year}-01-01`;
+    const to   = `${year}-12-31`;
+
+    // YTD net profit
+    const incomeRow  = await get('SELECT COALESCE(SUM(amount), 0) as total FROM income  WHERE date >= ? AND date <= ?', [from, to]);
+    const expenseRow = await get('SELECT COALESCE(SUM(amount), 0) as total FROM expenses WHERE date >= ? AND date <= ?', [from, to]);
+    const netProfit  = incomeRow.total - expenseRow.total;
+
+    // Mileage deduction
+    const irsRow  = await get("SELECT value FROM settings WHERE key = 'irs_mileage_rate'");
+    const irsRate = parseFloat(irsRow?.value || '0.70');
+    const trips   = await all('SELECT miles, round_trip FROM mileage_trips WHERE date >= ? AND date <= ?', [from, to]);
+    let totalMiles = 0;
+    for (const t of trips) totalMiles += t.round_trip ? t.miles * 2 : t.miles;
+    const mileageDeduction = Math.round(totalMiles * irsRate * 100) / 100;
+
+    const adjustedProfit = netProfit - mileageDeduction;
+
+    // Self-employment tax
+    const selfEmploymentTax = Math.max(0, Math.round(adjustedProfit * 0.9235 * 0.153 * 100) / 100);
+    const seDeduction       = Math.round((selfEmploymentTax / 2) * 100) / 100;
+    const taxableIncome     = Math.max(0, adjustedProfit - seDeduction);
+
+    // Estimated income tax (simple brackets, 2024/2025)
+    function calcIncomeTax(income) {
+      if (income <= 0) return 0;
+      let tax = 0;
+      if (income > 201000) { tax += (income - 201000) * 0.32; income = 201000; }
+      if (income > 95000)  { tax += (income - 95000)  * 0.24; income = 95000;  }
+      if (income > 44000)  { tax += (income - 44000)  * 0.22; income = 44000;  }
+      if (income > 11000)  { tax += (income - 11000)  * 0.12; income = 11000;  }
+      tax += income * 0.10;
+      return Math.round(tax * 100) / 100;
+    }
+
+    const estimatedIncomeTax = calcIncomeTax(taxableIncome);
+    const totalEstimatedTax  = Math.round((selfEmploymentTax + estimatedIncomeTax) * 100) / 100;
+    const perQuarter         = Math.round((totalEstimatedTax / 4) * 100) / 100;
+
+    const yr = Number(year);
+    res.json({
+      year: yr,
+      netProfit:            Math.round(netProfit * 100) / 100,
+      mileageDeduction,
+      adjustedProfit:       Math.round(adjustedProfit * 100) / 100,
+      selfEmploymentTax,
+      estimatedIncomeTax,
+      totalEstimatedTax,
+      perQuarter,
+      quarters: [
+        { quarter: 1, dueDate: `${yr}-04-15`,     amount: perQuarter, label: 'Q1 (Jan-Mar)' },
+        { quarter: 2, dueDate: `${yr}-06-16`,     amount: perQuarter, label: 'Q2 (Apr-May)' },
+        { quarter: 3, dueDate: `${yr}-09-15`,     amount: perQuarter, label: 'Q3 (Jun-Aug)' },
+        { quarter: 4, dueDate: `${yr + 1}-01-15`, amount: perQuarter, label: 'Q4 (Sep-Dec)' }
+      ],
+      irsRate,
+      disclaimer: 'Estimates only. Consult a tax professional.'
+    });
+  } catch (err) {
+    console.error('GET /api/tax/quarterly-estimate error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ===========================================================================
+// 1099 TRACKER
+// ===========================================================================
+
+// GET /api/compliance/1099?year=YYYY — vendors grouped with threshold flag
+app.get('/api/compliance/1099', async (req, res) => {
+  try {
+    const year = req.query.year || new Date().getFullYear();
+    const from = `${year}-01-01`;
+    const to   = `${year}-12-31`;
+
+    const vendors = await all(
+      `SELECT COALESCE(vendor, 'Unknown') as vendor, SUM(amount) as totalPaid
+       FROM expenses
+       WHERE is_subcontractor = 1 AND date >= ? AND date <= ?
+       GROUP BY vendor
+       ORDER BY totalPaid DESC`,
+      [from, to]
+    );
+
+    const details = await all('SELECT * FROM subcontractor_details');
+    const detailMap = {};
+    for (const d of details) detailMap[d.vendor_name] = d;
+
+    const result = vendors.map(v => {
+      const detail = detailMap[v.vendor] || null;
+      let filed = false;
+      if (detail && detail.filed_years) {
+        try {
+          const filedYears = JSON.parse(detail.filed_years);
+          filed = filedYears.includes(Number(year));
+        } catch (e) { /* ignore parse error */ }
+      }
+      return {
+        vendor:     v.vendor,
+        totalPaid:  Math.round(v.totalPaid * 100) / 100,
+        needs1099:  v.totalPaid >= 600,
+        threshold:  600,
+        filed,
+        details:    detail ? {
+          ein:     detail.ein,
+          address: detail.address,
+          city:    detail.city,
+          state:   detail.state,
+          zip:     detail.zip
+        } : null
+      };
+    });
+
+    res.json(result);
+  } catch (err) {
+    console.error('GET /api/compliance/1099 error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/compliance/1099/details — create or update subcontractor details
+app.post('/api/compliance/1099/details', async (req, res) => {
+  try {
+    const { vendor_name, ein, address, city, state, zip } = req.body;
+    const vErrors = validate(req.body, {
+      vendor_name: { required: true, type: 'string', maxLength: 200 },
+      ein:         { type: 'string', maxLength: 20 },
+      address:     { type: 'string', maxLength: 500 },
+      city:        { type: 'string', maxLength: 100 },
+      state:       { type: 'string', maxLength: 50 },
+      zip:         { type: 'string', maxLength: 20 }
+    });
+    if (vErrors) return res.status(400).json({ error: vErrors.join('; ') });
+
+    const existing = await get('SELECT * FROM subcontractor_details WHERE vendor_name = ?', [vendor_name]);
+    if (existing) {
+      await run(
+        `UPDATE subcontractor_details SET ein = ?, address = ?, city = ?, state = ?, zip = ?
+         WHERE vendor_name = ?`,
+        [
+          ein     !== undefined ? ein     : existing.ein,
+          address !== undefined ? address : existing.address,
+          city    !== undefined ? city    : existing.city,
+          state   !== undefined ? state   : existing.state,
+          zip     !== undefined ? zip     : existing.zip,
+          vendor_name
+        ]
+      );
+      const updated = await get('SELECT * FROM subcontractor_details WHERE vendor_name = ?', [vendor_name]);
+      res.json(updated);
+    } else {
+      const result = await run(
+        `INSERT INTO subcontractor_details (vendor_name, ein, address, city, state, zip)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [vendor_name, ein || null, address || null, city || null, state || null, zip || null]
+      );
+      const created = await get('SELECT * FROM subcontractor_details WHERE id = ?', [result.lastInsertRowid]);
+      res.status(201).json(created);
+    }
+  } catch (err) {
+    console.error('POST /api/compliance/1099/details error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/compliance/1099/details — list all subcontractor details
+app.get('/api/compliance/1099/details', async (req, res) => {
+  try {
+    const rows = await all('SELECT * FROM subcontractor_details ORDER BY vendor_name');
+    res.json(rows);
+  } catch (err) {
+    console.error('GET /api/compliance/1099/details error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PATCH /api/compliance/1099/:vendor/filed — mark year as filed
+app.patch('/api/compliance/1099/:vendor/filed', async (req, res) => {
+  try {
+    const vendorName = decodeURIComponent(req.params.vendor);
+    const { year } = req.body;
+    if (!year) return res.status(400).json({ error: 'year is required' });
+
+    const existing = await get('SELECT * FROM subcontractor_details WHERE vendor_name = ?', [vendorName]);
+    if (!existing) return res.status(404).json({ error: 'Subcontractor not found' });
+
+    let filedYears = [];
+    try { filedYears = JSON.parse(existing.filed_years || '[]'); } catch (e) { /* ignore */ }
+
+    if (!filedYears.includes(Number(year))) {
+      filedYears.push(Number(year));
+    }
+
+    await run(
+      'UPDATE subcontractor_details SET filed_years = ? WHERE vendor_name = ?',
+      [JSON.stringify(filedYears), vendorName]
+    );
+    const updated = await get('SELECT * FROM subcontractor_details WHERE vendor_name = ?', [vendorName]);
+    res.json(updated);
+  } catch (err) {
+    console.error('PATCH /api/compliance/1099/:vendor/filed error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/compliance/1099/export?year=YYYY — CSV export
+app.get('/api/compliance/1099/export', async (req, res) => {
+  try {
+    const year = req.query.year || new Date().getFullYear();
+    const from = `${year}-01-01`;
+    const to   = `${year}-12-31`;
+
+    const vendors = await all(
+      `SELECT COALESCE(vendor, 'Unknown') as vendor, SUM(amount) as totalPaid
+       FROM expenses
+       WHERE is_subcontractor = 1 AND date >= ? AND date <= ?
+       GROUP BY vendor
+       ORDER BY vendor`,
+      [from, to]
+    );
+
+    const details = await all('SELECT * FROM subcontractor_details');
+    const detailMap = {};
+    for (const d of details) detailMap[d.vendor_name] = d;
+
+    const headers = ['Vendor', 'EIN', 'Address', 'City', 'State', 'ZIP', 'Amount Paid'];
+    const rows = vendors.map(v => {
+      const d = detailMap[v.vendor] || {};
+      return [
+        v.vendor,
+        d.ein     || '',
+        d.address || '',
+        d.city    || '',
+        d.state   || '',
+        d.zip     || '',
+        Math.round(v.totalPaid * 100) / 100
+      ];
+    });
+
+    sendCSV(res, `1099-${year}.csv`, headers, rows);
+  } catch (err) {
+    console.error('GET /api/compliance/1099/export error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ===========================================================================
+// EMAIL INVOICES
+// ===========================================================================
+
+app.post('/api/invoices/:id/email', async (req, res) => {
+  try {
+    // Load invoice with client email
+    const invoice = await get(
+      `SELECT inv.*, c.name as client_name, c.email as client_email,
+              c.phone as client_phone, c.address as client_address
+       FROM invoices inv
+       LEFT JOIN clients c ON inv.client_id = c.id
+       WHERE inv.id = ?`,
+      [req.params.id]
+    );
+    if (!invoice) return res.status(404).json({ error: 'Invoice not found' });
+    if (!invoice.client_email) {
+      return res.status(400).json({ error: 'Client has no email address on file' });
+    }
+
+    // Load SMTP settings
+    const settingsRows = await all('SELECT key, value FROM settings');
+    const settings = {};
+    for (const row of settingsRows) settings[row.key] = row.value;
+
+    if (settings.smtp_enabled !== '1') {
+      return res.status(400).json({ error: 'Email not configured. Set up SMTP in Settings.' });
+    }
+
+    // Generate PDF as buffer
+    const items = await all('SELECT * FROM invoice_items WHERE invoice_id = ? ORDER BY id', [req.params.id]);
+    const client = {
+      name:    invoice.client_name,
+      email:   invoice.client_email,
+      phone:   invoice.client_phone,
+      address: invoice.client_address
+    };
+
+    const pdfBuffer = await new Promise((resolve, reject) => {
+      const doc = pdf.generateInvoice(invoice, items, settings, client);
+      const chunks = [];
+      doc.on('data',  chunk => chunks.push(chunk));
+      doc.on('end',   () => resolve(Buffer.concat(chunks)));
+      doc.on('error', reject);
+      doc.end();
+    });
+
+    // Build transporter
+    const transporter = nodemailer.createTransport({
+      host:   settings.smtp_host,
+      port:   parseInt(settings.smtp_port) || 587,
+      secure: parseInt(settings.smtp_port) === 465,
+      auth: {
+        user: settings.smtp_user,
+        pass: settings.smtp_pass
+      }
+    });
+
+    const businessName = settings.business_name || 'Your Business';
+    const fromAddress  = settings.smtp_from || settings.smtp_user;
+
+    await transporter.sendMail({
+      from:    `"${businessName}" <${fromAddress}>`,
+      to:      invoice.client_email,
+      subject: `Invoice ${invoice.invoice_number} from ${businessName}`,
+      text:    `Please find attached invoice ${invoice.invoice_number} for $${invoice.total?.toFixed(2) || '0.00'}.\n\nThank you for your business.\n\n${businessName}`,
+      attachments: [
+        {
+          filename:    `invoice-${invoice.invoice_number}.pdf`,
+          content:     pdfBuffer,
+          contentType: 'application/pdf'
+        }
+      ]
+    });
+
+    res.json({ success: true, sentTo: invoice.client_email });
+  } catch (err) {
+    console.error('POST /api/invoices/:id/email error:', err);
     res.status(500).json({ error: err.message });
   }
 });

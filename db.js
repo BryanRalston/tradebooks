@@ -115,6 +115,30 @@ db.exec(`
     expired INTEGER NOT NULL
   );
   CREATE INDEX IF NOT EXISTS idx_sessions_expired ON sessions(expired);
+
+  CREATE TABLE IF NOT EXISTS mileage_trips (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    date        TEXT NOT NULL,
+    destination TEXT NOT NULL,
+    purpose     TEXT NOT NULL,
+    miles       REAL NOT NULL,
+    job_id      INTEGER REFERENCES jobs(id) ON DELETE SET NULL,
+    round_trip  INTEGER DEFAULT 0,
+    created_at  TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS subcontractor_details (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    vendor_name  TEXT NOT NULL UNIQUE,
+    ein          TEXT,
+    address      TEXT,
+    city         TEXT,
+    state        TEXT,
+    zip          TEXT,
+    needs_1099   INTEGER DEFAULT 1,
+    filed_years  TEXT DEFAULT '[]',
+    created_at   TEXT DEFAULT (datetime('now'))
+  );
 `);
 
 // ── Indexes ──────────────────────────────────────────────────────────
@@ -130,6 +154,8 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_invoices_status     ON invoices(status);
   CREATE INDEX IF NOT EXISTS idx_invoices_client     ON invoices(client_id);
   CREATE INDEX IF NOT EXISTS idx_invoice_items_invoice ON invoice_items(invoice_id);
+  CREATE INDEX IF NOT EXISTS idx_mileage_date ON mileage_trips(date);
+  CREATE INDEX IF NOT EXISTS idx_mileage_job  ON mileage_trips(job_id);
 `);
 
 // ── Helpers ──────────────────────────────────────────────────────────
@@ -197,6 +223,24 @@ function seedCategories() {
 
 // Run seed on first load
 seedCategories();
+
+// ── Migrations (ALTER TABLE — safe to re-run, fails silently if column exists) ──
+try {
+  db.exec(`ALTER TABLE expenses ADD COLUMN is_subcontractor INTEGER DEFAULT 0`);
+} catch (e) {
+  // Column already exists — that's fine
+}
+
+// ── Seed Settings ────────────────────────────────────────────────────
+db.exec(`
+  INSERT OR IGNORE INTO settings (key, value) VALUES ('irs_mileage_rate', '0.70');
+  INSERT OR IGNORE INTO settings (key, value) VALUES ('smtp_host', '');
+  INSERT OR IGNORE INTO settings (key, value) VALUES ('smtp_port', '587');
+  INSERT OR IGNORE INTO settings (key, value) VALUES ('smtp_user', '');
+  INSERT OR IGNORE INTO settings (key, value) VALUES ('smtp_pass', '');
+  INSERT OR IGNORE INTO settings (key, value) VALUES ('smtp_from', '');
+  INSERT OR IGNORE INTO settings (key, value) VALUES ('smtp_enabled', '0');
+`);
 
 // ── Invoice Number Generator ─────────────────────────────────────────
 function nextInvoiceNumber() {

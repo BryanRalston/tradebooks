@@ -478,6 +478,9 @@ const ExpenseForm = (() => {
           <label>Notes</label>
           <textarea id="ef-notes" class="input" rows="3" placeholder="Optional notes">${Utils.escapeHtml(exp.notes || '')}</textarea>
         </div>
+        <div class="form-group checkbox-group">
+          <label><input type="checkbox" id="ef-subcontractor" ${exp.is_subcontractor ? 'checked' : ''}> This is a subcontractor payment (tracks for 1099)</label>
+        </div>
         <div class="form-group" id="ef-receipt-section">
           <label>Receipt</label>
           <div class="receipt-capture-btns">
@@ -620,13 +623,14 @@ const ExpenseForm = (() => {
     document.getElementById('expense-form').addEventListener('submit', async e => {
       e.preventDefault();
       const payload = {
-        amount:         parseFloat(document.getElementById('ef-amount').value) || 0,
-        date:           document.getElementById('ef-date').value,
-        vendor:         document.getElementById('ef-vendor').value.trim(),
-        category_id:    document.getElementById('ef-category').value || null,
-        job_id:         document.getElementById('ef-job').value || null,
-        payment_method: document.getElementById('ef-payment').value,
-        notes:          document.getElementById('ef-notes').value.trim()
+        amount:           parseFloat(document.getElementById('ef-amount').value) || 0,
+        date:             document.getElementById('ef-date').value,
+        vendor:           document.getElementById('ef-vendor').value.trim(),
+        category_id:      document.getElementById('ef-category').value || null,
+        job_id:           document.getElementById('ef-job').value || null,
+        payment_method:   document.getElementById('ef-payment').value,
+        notes:            document.getElementById('ef-notes').value.trim(),
+        is_subcontractor: document.getElementById('ef-subcontractor').checked ? 1 : 0
       };
       const result = isEdit
         ? await API.put(`/api/expenses/${id}`, payload)
@@ -1517,6 +1521,7 @@ const InvoiceForm = (() => {
           ${isEdit && inv.status === 'draft' ? `<button type="button" class="btn btn-primary" id="inv-mark-sent">Mark as Sent</button>` : ''}
           ${isEdit && inv.status === 'sent'  ? `<button type="button" class="btn btn-primary" id="inv-mark-paid">Mark as Paid</button>` : ''}
           ${isEdit ? `<button type="button" class="btn btn-secondary" id="inv-pdf">Download PDF</button>` : ''}
+          ${isEdit ? `<button type="button" class="btn btn-secondary" id="inv-email-btn">✉️ Send to Client</button>` : ''}
         </div>
       </form>`;
 
@@ -1552,6 +1557,19 @@ const InvoiceForm = (() => {
     if (pdfBtn) pdfBtn.addEventListener('click', () => {
       window.open(`/api/invoices/${id}/pdf`, '_blank');
     });
+    const emailBtn = document.getElementById('inv-email-btn');
+    if (emailBtn) {
+      emailBtn.addEventListener('click', async () => {
+        emailBtn.disabled = true;
+        emailBtn.textContent = 'Sending...';
+        const result = await API.post(`/api/invoices/${id}/email`, {});
+        if (result) {
+          Utils.toast(`Invoice sent to ${result.sentTo}`, 'success');
+        }
+        emailBtn.disabled = false;
+        emailBtn.textContent = '✉️ Send to Client';
+      });
+    }
     const deleteBtn = document.getElementById('inv-delete');
     if (deleteBtn) deleteBtn.addEventListener('click', async () => {
       if (await Utils.confirm('Delete this invoice?')) {
@@ -1899,6 +1917,35 @@ const Settings = (() => {
               <label>Tax ID / EIN</label>
               <input type="text" id="set-taxid" class="input" value="${Utils.escapeHtml(s.tax_id || '')}" placeholder="XX-XXXXXXX">
             </div>
+            <h3 class="settings-section-title">Email Configuration</h3>
+            <div class="compliance-note">Configure SMTP to send invoices directly to clients. Gmail: use an <a href="https://myaccount.google.com/apppasswords" target="_blank">App Password</a>.</div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>SMTP Host</label>
+                <input type="text" id="s-smtp-host" class="input" value="${Utils.escapeHtml(s.smtp_host || '')}" placeholder="smtp.gmail.com">
+              </div>
+              <div class="form-group">
+                <label>SMTP Port</label>
+                <input type="number" id="s-smtp-port" class="input" value="${s.smtp_port || '587'}" placeholder="587">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Email Address</label>
+                <input type="email" id="s-smtp-user" class="input" value="${Utils.escapeHtml(s.smtp_user || '')}" placeholder="you@gmail.com">
+              </div>
+              <div class="form-group">
+                <label>App Password</label>
+                <input type="password" id="s-smtp-pass" class="input" value="${s.smtp_pass || ''}" placeholder="••••••••••••••••">
+              </div>
+            </div>
+            <div class="form-group">
+              <label>From Name / Email</label>
+              <input type="text" id="s-smtp-from" class="input" value="${Utils.escapeHtml(s.smtp_from || '')}" placeholder="Your Business Name <you@gmail.com>">
+            </div>
+            <div class="form-group checkbox-group">
+              <label><input type="checkbox" id="s-smtp-enabled" ${s.smtp_enabled === '1' ? 'checked' : ''}> Enable email sending</label>
+            </div>
             <div class="form-actions">
               <button type="submit" class="btn btn-primary">Save Settings</button>
             </div>
@@ -1925,7 +1972,13 @@ const Settings = (() => {
         address:       document.getElementById('set-address').value.trim(),
         phone:         document.getElementById('set-phone').value.trim(),
         email:         document.getElementById('set-email').value.trim(),
-        tax_id:        document.getElementById('set-taxid').value.trim()
+        tax_id:        document.getElementById('set-taxid').value.trim(),
+        smtp_host:     document.getElementById('s-smtp-host').value.trim(),
+        smtp_port:     document.getElementById('s-smtp-port').value.trim(),
+        smtp_user:     document.getElementById('s-smtp-user').value.trim(),
+        smtp_pass:     document.getElementById('s-smtp-pass').value,
+        smtp_from:     document.getElementById('s-smtp-from').value.trim(),
+        smtp_enabled:  document.getElementById('s-smtp-enabled').checked ? '1' : '0'
       };
       const res = await API.put('/api/settings', payload);
       if (res) Utils.toast('Settings saved', 'success');
@@ -2477,6 +2530,263 @@ const Onboarding = (() => {
 })();
 
 /* -------------------------------------------------------
+   18. Mileage Module — List view
+   ------------------------------------------------------- */
+const Mileage = (() => {
+  async function render() {
+    const main = document.getElementById('main-content');
+    main.innerHTML = loadingHtml();
+
+    const year = new Date().getFullYear();
+    const [trips, summary] = await Promise.all([
+      API.get('/api/mileage'),
+      API.get(`/api/mileage/summary?year=${year}`)
+    ]);
+
+    main.innerHTML = `
+      <div class="page-header">
+        <h1>Mileage Log</h1>
+        <button class="btn btn-primary" id="ml-add-btn">+ Add Trip</button>
+      </div>
+      <div class="compliance-summary-cards">
+        <div class="compliance-card">
+          <div class="compliance-card-label">Total Miles (${year})</div>
+          <div class="compliance-card-value">${(summary?.totalMiles || 0).toLocaleString()}</div>
+        </div>
+        <div class="compliance-card compliance-card-green">
+          <div class="compliance-card-label">Tax Deduction</div>
+          <div class="compliance-card-value">${Utils.formatCurrency(summary?.deductionAmount || 0)}</div>
+        </div>
+        <div class="compliance-card">
+          <div class="compliance-card-label">IRS Rate</div>
+          <div class="compliance-card-value">$${summary?.irsRate || 0.70}/mile</div>
+        </div>
+      </div>
+      <div class="compliance-note">IRS requires: date, destination, business purpose, and miles for each trip.</div>
+      <div class="table-card">
+        <table class="data-table">
+          <thead><tr><th>Date</th><th>Destination</th><th>Purpose</th><th>Miles</th><th>Job</th><th>Deduction</th><th></th></tr></thead>
+          <tbody>
+            ${(trips || []).length === 0 ? '<tr><td colspan="7" class="empty-cell">No trips logged yet.</td></tr>' :
+              (trips || []).map(t => `
+                <tr class="clickable-row" data-id="${t.id}">
+                  <td>${Utils.formatDate(t.date)}</td>
+                  <td>${Utils.escapeHtml(t.destination)}</td>
+                  <td>${Utils.escapeHtml(t.purpose)}</td>
+                  <td class="num-cell">${t.round_trip ? t.miles * 2 : t.miles} mi${t.round_trip ? ' (RT)' : ''}</td>
+                  <td>${Utils.escapeHtml(t.job_name || '—')}</td>
+                  <td class="num-cell green-text">${Utils.formatCurrency((t.round_trip ? t.miles * 2 : t.miles) * (summary?.irsRate || 0.70))}</td>
+                  <td><button class="btn btn-sm btn-secondary ml-edit" data-id="${t.id}">Edit</button></td>
+                </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`;
+
+    document.getElementById('ml-add-btn').addEventListener('click', () => Router.navigate('#/mileage/new'));
+    document.querySelectorAll('.ml-edit').forEach(btn => {
+      btn.addEventListener('click', e => { e.stopPropagation(); Router.navigate(`#/mileage/${btn.dataset.id}`); });
+    });
+  }
+  return { render };
+})();
+
+/* -------------------------------------------------------
+   19. MileageForm Module — Add / Edit trip
+   ------------------------------------------------------- */
+const MileageForm = (() => {
+  async function render({ params } = { params: {} }) {
+    const id = params?.id;
+    const isEdit = !!id;
+    const main = document.getElementById('main-content');
+    main.innerHTML = loadingHtml();
+
+    const [jobs, existing] = await Promise.all([
+      API.get('/api/jobs?status=active'),
+      isEdit ? API.get(`/api/mileage/${id}`) : Promise.resolve(null)
+    ]);
+    const trip = existing || {};
+
+    main.innerHTML = `
+      <div class="page-header"><h1>${isEdit ? 'Edit Trip' : 'Log a Trip'}</h1></div>
+      <form id="mileage-form" class="form-card">
+        <div class="form-row">
+          <div class="form-group">
+            <label>Date *</label>
+            <input type="date" id="mf-date" class="input" value="${Utils.formatDateInput(trip.date)}" required>
+          </div>
+          <div class="form-group">
+            <label>Miles *</label>
+            <input type="number" step="0.1" min="0" id="mf-miles" class="input" value="${trip.miles || ''}" required placeholder="0.0">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Destination *</label>
+          <input type="text" id="mf-destination" class="input" value="${Utils.escapeHtml(trip.destination || '')}" required placeholder="e.g. Home Depot - 123 Main St">
+        </div>
+        <div class="form-group">
+          <label>Business Purpose *</label>
+          <input type="text" id="mf-purpose" class="input" value="${Utils.escapeHtml(trip.purpose || '')}" required placeholder="e.g. Pick up materials for Johnson job">
+        </div>
+        <div class="form-group">
+          <label>Job (optional)</label>
+          <select id="mf-job" class="input">
+            ${optionsHtml(jobs, 'id', 'name', trip.job_id, 'No job')}
+          </select>
+        </div>
+        <div class="form-group checkbox-group">
+          <label><input type="checkbox" id="mf-roundtrip" ${trip.round_trip ? 'checked' : ''}> Round trip (miles will be doubled)</label>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-secondary" onclick="Router.navigate('#/compliance')">Cancel</button>
+          ${isEdit ? `<button type="button" class="btn btn-danger" id="mf-delete">Delete</button>` : ''}
+          <button type="submit" class="btn btn-primary">${isEdit ? 'Save' : 'Log Trip'}</button>
+        </div>
+      </form>`;
+
+    document.getElementById('mileage-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      const miles = parseFloat(document.getElementById('mf-miles').value) || 0;
+      const roundTrip = document.getElementById('mf-roundtrip').checked;
+      const payload = {
+        date: document.getElementById('mf-date').value,
+        destination: document.getElementById('mf-destination').value.trim(),
+        purpose: document.getElementById('mf-purpose').value.trim(),
+        miles: roundTrip ? miles / 2 : miles,
+        job_id: document.getElementById('mf-job').value || null,
+        round_trip: roundTrip ? 1 : 0
+      };
+      const result = isEdit ? await API.put(`/api/mileage/${id}`, payload) : await API.post('/api/mileage', payload);
+      if (!result) return;
+      Utils.toast(isEdit ? 'Trip updated' : 'Trip logged', 'success');
+      Router.navigate('#/compliance');
+    });
+
+    if (isEdit) {
+      document.getElementById('mf-delete').addEventListener('click', async () => {
+        if (await Utils.confirm('Delete this trip?')) {
+          await API.del(`/api/mileage/${id}`);
+          Utils.toast('Trip deleted', 'success');
+          Router.navigate('#/compliance');
+        }
+      });
+    }
+  }
+  return { render };
+})();
+
+/* -------------------------------------------------------
+   20. Compliance Module — Hub: Quarterly Tax + 1099 + Mileage
+   ------------------------------------------------------- */
+const Compliance = (() => {
+  async function render() {
+    const main = document.getElementById('main-content');
+    main.innerHTML = loadingHtml();
+    const year = new Date().getFullYear();
+
+    const [taxEst, tracker1099, mileageSummary] = await Promise.all([
+      API.get(`/api/tax/quarterly-estimate?year=${year}`),
+      API.get(`/api/compliance/1099?year=${year}`),
+      API.get(`/api/mileage/summary?year=${year}`)
+    ]);
+
+    const quarters = taxEst?.quarters || [];
+    const today = new Date().toISOString().slice(0, 10);
+
+    const quarterCards = quarters.map(q => {
+      const isPast = q.dueDate < today;
+      const isNear = !isPast && q.dueDate <= new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
+      const statusClass = isPast ? 'q-past' : isNear ? 'q-near' : 'q-future';
+      const statusLabel = isPast ? 'Past due' : isNear ? 'Due soon' : 'Upcoming';
+      return `
+        <div class="quarter-card ${statusClass}">
+          <div class="quarter-label">${q.label}</div>
+          <div class="quarter-due">Due ${Utils.formatDate(q.dueDate)}</div>
+          <div class="quarter-amount">${Utils.formatCurrency(q.amount)}</div>
+          <div class="quarter-status">${statusLabel}</div>
+        </div>`;
+    }).join('');
+
+    const needs1099 = (tracker1099 || []).filter(v => v.needs1099 && !v.filed);
+    const filed1099 = (tracker1099 || []).filter(v => v.filed);
+
+    main.innerHTML = `
+      <div class="page-header">
+        <h1>Compliance Center</h1>
+        <span class="page-subtitle">Tax obligations, mileage, and contractor requirements for ${year}</span>
+      </div>
+
+      <!-- Quarterly Tax Estimator -->
+      <div class="compliance-section">
+        <h2 class="section-title">📅 Quarterly Estimated Taxes</h2>
+        <div class="compliance-disclaimer">${taxEst?.disclaimer || 'Estimates only. Consult a tax professional.'}</div>
+        <div class="quarter-grid">${quarterCards}</div>
+        ${taxEst ? `
+        <div class="tax-breakdown">
+          <div class="tax-row"><span>Net Profit (${year})</span><span class="num">${Utils.formatCurrency(taxEst.netProfit)}</span></div>
+          <div class="tax-row"><span>Mileage Deduction</span><span class="num red-text">−${Utils.formatCurrency(taxEst.mileageDeduction)}</span></div>
+          <div class="tax-row"><span>Adjusted Profit</span><span class="num">${Utils.formatCurrency(taxEst.adjustedProfit)}</span></div>
+          <div class="tax-row"><span>Self-Employment Tax (15.3%)</span><span class="num red-text">−${Utils.formatCurrency(taxEst.selfEmploymentTax)}</span></div>
+          <div class="tax-row"><span>Estimated Income Tax</span><span class="num red-text">−${Utils.formatCurrency(taxEst.estimatedIncomeTax)}</span></div>
+          <div class="tax-row tax-row-total"><span>Total Annual Tax Estimate</span><span class="num">${Utils.formatCurrency(taxEst.totalEstimatedTax)}</span></div>
+        </div>` : '<div class="empty-state">No profit data yet for this year.</div>'}
+      </div>
+
+      <!-- Mileage Summary -->
+      <div class="compliance-section">
+        <h2 class="section-title">🚗 Mileage Deduction</h2>
+        <div class="compliance-summary-cards">
+          <div class="compliance-card"><div class="compliance-card-label">Miles Logged</div><div class="compliance-card-value">${(mileageSummary?.totalMiles || 0).toLocaleString()}</div></div>
+          <div class="compliance-card compliance-card-green"><div class="compliance-card-label">Deduction Value</div><div class="compliance-card-value">${Utils.formatCurrency(mileageSummary?.deductionAmount || 0)}</div></div>
+          <div class="compliance-card"><div class="compliance-card-label">IRS Rate</div><div class="compliance-card-value">$${mileageSummary?.irsRate || 0.70}/mi</div></div>
+        </div>
+        <div style="margin-top:12px">
+          <a href="#/mileage" class="btn btn-secondary">View Mileage Log</a>
+          <button class="btn btn-primary" style="margin-left:8px" onclick="Router.navigate('#/mileage/new')">+ Log Trip</button>
+        </div>
+      </div>
+
+      <!-- 1099 Tracker -->
+      <div class="compliance-section">
+        <h2 class="section-title">📋 1099-NEC Tracker</h2>
+        <div class="compliance-note">Subcontractors paid <strong>$600 or more</strong> in a calendar year require a 1099-NEC filed by <strong>January 31</strong>.</div>
+        ${needs1099.length > 0 ? `
+          <div class="alert-banner alert-warning">⚠️ ${needs1099.length} subcontractor${needs1099.length > 1 ? 's' : ''} need a 1099-NEC for ${year}</div>` : ''}
+        <div class="table-card" style="margin-top:12px">
+          <table class="data-table">
+            <thead><tr><th>Subcontractor</th><th>Total Paid</th><th>Status</th><th>Action</th></tr></thead>
+            <tbody>
+              ${(tracker1099 || []).length === 0 ? '<tr><td colspan="4" class="empty-cell">No subcontractor expenses flagged yet.<br><small>Mark expenses as "subcontractor" to track here.</small></td></tr>' :
+                (tracker1099 || []).map(v => `
+                  <tr>
+                    <td>${Utils.escapeHtml(v.vendor)}</td>
+                    <td class="num-cell">${Utils.formatCurrency(v.totalPaid)}</td>
+                    <td><span class="badge ${v.filed ? 'badge-green' : v.needs1099 ? 'badge-red' : 'badge-gray'}">${v.filed ? '✓ Filed' : v.needs1099 ? 'Needs 1099' : 'Under $600'}</span></td>
+                    <td>
+                      ${!v.filed && v.needs1099 ? `<button class="btn btn-sm btn-secondary mark-filed-btn" data-vendor="${Utils.escapeHtml(v.vendor)}">Mark Filed</button>` : ''}
+                    </td>
+                  </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+        <div style="margin-top:8px">
+          <a href="/api/compliance/1099/export?year=${year}" class="btn btn-secondary btn-sm" download="1099_${year}.csv">Export CSV</a>
+        </div>
+      </div>`;
+
+    // Mark filed handlers
+    document.querySelectorAll('.mark-filed-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const vendor = btn.dataset.vendor;
+        await API.patch(`/api/compliance/1099/${encodeURIComponent(vendor)}/filed`, { year });
+        Utils.toast('Marked as filed', 'success');
+        render();
+      });
+    });
+  }
+  return { render };
+})();
+
+/* -------------------------------------------------------
    Init — Register all routes, bind events
    ------------------------------------------------------- */
 document.addEventListener('DOMContentLoaded', () => {
@@ -2499,6 +2809,10 @@ document.addEventListener('DOMContentLoaded', () => {
   Router.register('/invoices/:id',   (ctx) => InvoiceForm.render(ctx));
   Router.register('/reports',        () => Reports.render());
   Router.register('/settings',       () => Settings.render());
+  Router.register('/compliance',     () => Compliance.render());
+  Router.register('/mileage',        () => Mileage.render());
+  Router.register('/mileage/new',    () => MileageForm.render());
+  Router.register('/mileage/:id',    (ctx) => MileageForm.render(ctx));
 
   // Init router (listen + dispatch initial route)
   Router.init();

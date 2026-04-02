@@ -27,6 +27,8 @@
       --red-light: #FEE2E2;
       --amber: #D97706;
       --amber-light: #FEF3C7;
+      --purple: #7C3AED;
+      --purple-light: #EDE9FE;
       --border: #E2E8F0;
       --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
       --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
@@ -328,7 +330,7 @@
        =================================================== */
     .quickstart-grid {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
       gap: 16px;
     }
 
@@ -862,6 +864,7 @@
       <a href="#quick-start" class="active"><span class="nav-dot"></span> Quick Start</a>
       <a href="#workflows"><span class="nav-dot"></span> Core Workflows</a>
       <a href="#features"><span class="nav-dot"></span> Feature Reference</a>
+      <a href="#compliance"><span class="nav-dot"></span> ⚖️ Compliance</a>
       <a href="#tips"><span class="nav-dot"></span> Tips for Contractors</a>
       <a href="#faq"><span class="nav-dot"></span> FAQ</a>
     </nav>
@@ -918,6 +921,12 @@
             <h3>Create Your First Job</h3>
             <p>Give the job a name, link it to your client, and set a budget if you have one. Now you can start tracking every dollar that goes in and out of that job.</p>
             <span class="qs-nav">💼 Jobs → New Job</span>
+          </div>
+          <div class="qs-card reveal reveal-delay-4">
+            <div class="qs-step-num">4</div>
+            <h3>Configure the Compliance Center</h3>
+            <p>Log mileage after every business drive. Check your quarterly tax estimate before each due date. Flag subcontractor payments for 1099 tracking.</p>
+            <span class="qs-nav">⚖️ Compliance</span>
           </div>
         </div>
       </section>
@@ -1351,6 +1360,253 @@
       <hr class="section-divider">
 
       <!-- ==========================================
+           COMPLIANCE CENTER
+           ========================================== -->
+      <section id="compliance">
+        <div class="section-header reveal">
+          <h2>⚖️ Compliance Center — Tax &amp; Legal Obligations</h2>
+          <p>TradeBooks helps you stay on top of four key contractor obligations the IRS and state agencies care about.</p>
+        </div>
+
+        <div class="workflow-list">
+
+          <!-- 1. Mileage Log -->
+          <div class="workflow-card reveal" id="wf-mileage">
+            <div class="workflow-card-header" onclick="toggleWorkflow('wf-mileage')">
+              <div class="workflow-icon" style="background:#DBEAFE;">🚗</div>
+              <div class="workflow-title-block">
+                <h3>Mileage Log <span style="font-size:12px;font-weight:500;color:#2563EB;background:#DBEAFE;padding:2px 8px;border-radius:99px;margin-left:6px;vertical-align:middle;">IRS-Required</span></h3>
+                <p>Record every business drive and calculate your tax deduction automatically.</p>
+              </div>
+              <svg class="workflow-chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </div>
+            <div class="workflow-body">
+              <div class="workflow-body-inner">
+                <ol class="workflow-steps">
+                  <li class="workflow-step">
+                    <div class="step-num" style="background:#DBEAFE;color:#2563EB;">1</div>
+                    <div class="step-content">
+                      <strong>Open Mileage Log</strong>
+                      <span>Go to <span class="step-nav-path">Compliance → Mileage Log</span> in the sidebar.</span>
+                    </div>
+                  </li>
+                  <li class="workflow-step">
+                    <div class="step-num" style="background:#DBEAFE;color:#2563EB;">2</div>
+                    <div class="step-content">
+                      <strong>Click "+ Log Trip"</strong>
+                      <span>Do this after every business drive — the sooner the better.</span>
+                    </div>
+                  </li>
+                  <li class="workflow-step">
+                    <div class="step-num" style="background:#DBEAFE;color:#2563EB;">3</div>
+                    <div class="step-content">
+                      <strong>Enter the trip details</strong>
+                      <span>Date, destination, miles, and business purpose — e.g. <em>"Pick up lumber for Johnson job."</em> The purpose is required for IRS compliance.</span>
+                    </div>
+                  </li>
+                  <li class="workflow-step">
+                    <div class="step-num" style="background:#DBEAFE;color:#2563EB;">4</div>
+                    <div class="step-content">
+                      <strong>Check "Round trip" if applicable</strong>
+                      <span>Miles double automatically — no mental math needed.</span>
+                    </div>
+                  </li>
+                  <li class="workflow-step">
+                    <div class="step-num" style="background:#DBEAFE;color:#2563EB;">5</div>
+                    <div class="step-content">
+                      <strong>Link the trip to a job</strong>
+                      <span>Optional, but it connects your drive to the right project for detailed job profitability tracking.</span>
+                    </div>
+                  </li>
+                  <li class="workflow-step">
+                    <div class="step-num" style="background:#DBEAFE;color:#2563EB;">6</div>
+                    <div class="step-content">
+                      <strong>Your deduction calculates automatically</strong>
+                      <span>TradeBooks applies the current IRS mileage rate ($0.70/mile in 2025) and shows your running total deduction for the year.</span>
+                      <div class="step-tip">💡 The IRS requires a <em>contemporaneous</em> mileage log — record trips when they happen, not at tax time. A well-kept log is your defense in an audit. The average contractor drives 15,000+ business miles per year — that's a $10,500+ deduction you don't want to miss.</div>
+                    </div>
+                  </li>
+                </ol>
+              </div>
+            </div>
+          </div>
+
+          <!-- 2. Quarterly Estimated Taxes -->
+          <div class="workflow-card reveal" id="wf-quarterly">
+            <div class="workflow-card-header" onclick="toggleWorkflow('wf-quarterly')">
+              <div class="workflow-icon" style="background:#FEF3C7;">📅</div>
+              <div class="workflow-title-block">
+                <h3>Quarterly Estimated Taxes</h3>
+                <p>Know what you owe before each due date — avoid IRS underpayment penalties.</p>
+              </div>
+              <svg class="workflow-chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </div>
+            <div class="workflow-body">
+              <div class="workflow-body-inner">
+                <ol class="workflow-steps">
+                  <li class="workflow-step">
+                    <div class="step-num" style="background:#FEF3C7;color:#D97706;">1</div>
+                    <div class="step-content">
+                      <strong>Open Compliance Center</strong>
+                      <span>Tap <span class="step-nav-path">Compliance Center</span> in the sidebar.</span>
+                    </div>
+                  </li>
+                  <li class="workflow-step">
+                    <div class="step-num" style="background:#FEF3C7;color:#D97706;">2</div>
+                    <div class="step-content">
+                      <strong>Check the Quarterly Tax Estimator</strong>
+                      <span>Your estimated payment for each quarter is calculated from your actual income and expenses in TradeBooks.</span>
+                    </div>
+                  </li>
+                  <li class="workflow-step">
+                    <div class="step-num" style="background:#FEF3C7;color:#D97706;">3</div>
+                    <div class="step-content">
+                      <strong>Know your due dates</strong>
+                      <span>Payments are due: <strong>April 15</strong> (Q1), <strong>June 16</strong> (Q2), <strong>September 15</strong> (Q3), <strong>January 15</strong> (Q4). Set a calendar reminder for each one.</span>
+                    </div>
+                  </li>
+                  <li class="workflow-step">
+                    <div class="step-num" style="background:#FEF3C7;color:#D97706;">4</div>
+                    <div class="step-content">
+                      <strong>Understand what's included</strong>
+                      <span>The estimate accounts for self-employment tax (15.3%) + income tax based on your profit. Your mileage deduction is automatically subtracted before calculating.</span>
+                    </div>
+                  </li>
+                  <li class="workflow-step">
+                    <div class="step-num" style="background:#FEF3C7;color:#D97706;">5</div>
+                    <div class="step-content">
+                      <strong>Make your payment</strong>
+                      <span>Pay directly at <a href="https://www.irs.gov/payments" target="_blank" rel="noopener">IRS.gov/payments</a> or mail Form 1040-ES.</span>
+                      <div class="step-tip">💡 If you don't pay quarterly, the IRS charges an underpayment penalty — typically 8% annually on what you should have paid. For a contractor making $80K/year, that can be $1,500+ in penalties on top of your tax bill.</div>
+                    </div>
+                  </li>
+                </ol>
+              </div>
+            </div>
+          </div>
+
+          <!-- 3. 1099-NEC Tracker -->
+          <div class="workflow-card reveal" id="wf-1099">
+            <div class="workflow-card-header" onclick="toggleWorkflow('wf-1099')">
+              <div class="workflow-icon" style="background:#EDE9FE;">📋</div>
+              <div class="workflow-title-block">
+                <h3>1099-NEC Tracker</h3>
+                <p>Track subcontractor payments and stay ahead of January 31 filing deadlines.</p>
+              </div>
+              <svg class="workflow-chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </div>
+            <div class="workflow-body">
+              <div class="workflow-body-inner">
+                <ol class="workflow-steps">
+                  <li class="workflow-step">
+                    <div class="step-num" style="background:#EDE9FE;color:#7C3AED;">1</div>
+                    <div class="step-content">
+                      <strong>Flag subcontractor payments as you go</strong>
+                      <span>When adding an expense for a subcontractor, check <strong>"This is a subcontractor payment."</strong> TradeBooks starts tracking it automatically.</span>
+                    </div>
+                  </li>
+                  <li class="workflow-step">
+                    <div class="step-num" style="background:#EDE9FE;color:#7C3AED;">2</div>
+                    <div class="step-content">
+                      <strong>Open the 1099-NEC Tracker</strong>
+                      <span>Go to <span class="step-nav-path">Compliance Center</span> — the 1099-NEC Tracker section shows all subcontractors you've paid.</span>
+                    </div>
+                  </li>
+                  <li class="workflow-step">
+                    <div class="step-num" style="background:#EDE9FE;color:#7C3AED;">3</div>
+                    <div class="step-content">
+                      <strong>Watch for the "Needs 1099" flag</strong>
+                      <span>Any subcontractor paid <strong>$600 or more</strong> in a calendar year is automatically flagged — you won't miss the threshold.</span>
+                    </div>
+                  </li>
+                  <li class="workflow-step">
+                    <div class="step-num" style="background:#EDE9FE;color:#7C3AED;">4</div>
+                    <div class="step-content">
+                      <strong>Export the CSV for your accountant</strong>
+                      <span>Click <strong>Export CSV</strong> to get a file you can give your accountant or import into tax software.</span>
+                    </div>
+                  </li>
+                  <li class="workflow-step">
+                    <div class="step-num" style="background:#EDE9FE;color:#7C3AED;">5</div>
+                    <div class="step-content">
+                      <strong>Mark Filed when done</strong>
+                      <span>Once you've filed the 1099, click <strong>Mark Filed</strong> to keep your records clean. Add the sub's EIN and address in their details for complete records.</span>
+                      <div class="step-tip">💡 The deadline to send 1099-NEC forms is <strong>January 31</strong>. Missing this deadline costs $60–$310 per form in IRS penalties. If you pay subs in cash and don't track it, you also lose the deduction. Every subcontractor payment over $600 needs to be documented.</div>
+                    </div>
+                  </li>
+                </ol>
+              </div>
+            </div>
+          </div>
+
+          <!-- 4. Email Invoices -->
+          <div class="workflow-card reveal" id="wf-email">
+            <div class="workflow-card-header" onclick="toggleWorkflow('wf-email')">
+              <div class="workflow-icon" style="background:#DCFCE7;">✉️</div>
+              <div class="workflow-title-block">
+                <h3>Email Invoices</h3>
+                <p>Send invoice PDFs directly to your clients — with a timestamped paper trail.</p>
+              </div>
+              <svg class="workflow-chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </div>
+            <div class="workflow-body">
+              <div class="workflow-body-inner">
+                <ol class="workflow-steps">
+                  <li class="workflow-step">
+                    <div class="step-num" style="background:#DCFCE7;color:#16A34A;">1</div>
+                    <div class="step-content">
+                      <strong>Open Email Configuration</strong>
+                      <span>Go to <span class="step-nav-path">Settings</span> → scroll to <strong>Email Configuration</strong>.</span>
+                    </div>
+                  </li>
+                  <li class="workflow-step">
+                    <div class="step-num" style="background:#DCFCE7;color:#16A34A;">2</div>
+                    <div class="step-content">
+                      <strong>Enter your SMTP settings</strong>
+                      <span>Enter your SMTP host, port, email address, and app password. For Gmail: use <code>smtp.gmail.com</code>, port <code>587</code>, and create an <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener">App Password</a> in your Google account security settings.</span>
+                    </div>
+                  </li>
+                  <li class="workflow-step">
+                    <div class="step-num" style="background:#DCFCE7;color:#16A34A;">3</div>
+                    <div class="step-content">
+                      <strong>Enable email sending and save</strong>
+                      <span>Check <strong>Enable email sending</strong> and save your settings. You only need to do this once.</span>
+                    </div>
+                  </li>
+                  <li class="workflow-step">
+                    <div class="step-num" style="background:#DCFCE7;color:#16A34A;">4</div>
+                    <div class="step-content">
+                      <strong>Send an invoice</strong>
+                      <span>Open any invoice → click <strong>✉️ Send to Client</strong>. The invoice PDF is generated and emailed directly to your client.</span>
+                    </div>
+                  </li>
+                  <li class="workflow-step">
+                    <div class="step-num" style="background:#DCFCE7;color:#16A34A;">5</div>
+                    <div class="step-content">
+                      <strong>Make sure your client's email is on file</strong>
+                      <span>The client's email address must be saved in their <span class="step-nav-path">Client profile</span> for the send button to work.</span>
+                      <div class="step-tip">💡 Emailing invoices creates a paper trail — your client gets a timestamped email with the PDF attached, and you have proof it was sent. This matters if a payment dispute ever comes up.</div>
+                    </div>
+                  </li>
+                </ol>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- /workflow-list -->
+      </section>
+
+      <hr class="section-divider">
+
+      <!-- ==========================================
            TIPS FOR CONTRACTORS
            ========================================== -->
       <section id="tips">
@@ -1513,6 +1769,36 @@
             </div>
           </div>
 
+          <div class="faq-item reveal">
+            <div class="faq-question" onclick="toggleFaq(this)">
+              How accurate is the quarterly tax estimate?
+              <svg class="faq-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </div>
+            <div class="faq-answer">
+              <div class="faq-answer-inner">
+                <p>It's a good planning estimate, not a guarantee. It uses your actual income and expenses from TradeBooks plus your mileage deduction, then applies self-employment tax (15.3%) and income tax brackets.</p>
+                <p>It doesn't account for other deductions you may have — home office, health insurance, retirement contributions — so your actual tax bill may be lower. Always confirm with a tax professional before making payments.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="faq-item reveal reveal-delay-1">
+            <div class="faq-question" onclick="toggleFaq(this)">
+              Do I need to track mileage if I have a company truck?
+              <svg class="faq-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </div>
+            <div class="faq-answer">
+              <div class="faq-answer-inner">
+                <p>Yes — if the truck is used for both business and personal trips, you must document business miles to claim the deduction. If it's 100% business use, you may be able to deduct actual vehicle expenses instead of mileage — but either way, a log protects you.</p>
+                <p>TradeBooks tracks per IRS requirements: date, destination, purpose, and miles. That's everything you need whether you're using the standard mileage rate or the actual expense method.</p>
+              </div>
+            </div>
+          </div>
+
         </div>
       </section>
 
@@ -1622,7 +1908,7 @@
     // -----------------------------------------------
     // Active section highlighting in side nav
     // -----------------------------------------------
-    const sections = ['quick-start', 'workflows', 'features', 'tips', 'faq'];
+    const sections = ['quick-start', 'workflows', 'features', 'compliance', 'tips', 'faq'];
     const navLinks = document.querySelectorAll('.side-nav a');
 
     function updateActiveNav() {
