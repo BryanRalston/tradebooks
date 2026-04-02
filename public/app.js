@@ -233,84 +233,251 @@ function statusBadge(status) {
 const Dashboard = (() => {
   async function render() {
     const main = document.getElementById('main-content');
-    main.innerHTML = `<div class="page-header"><h1>Dashboard</h1><span class="page-date">${Utils.formatDate(Utils.today())}</span></div>${loadingHtml()}`;
+    main.innerHTML = loadingHtml();
 
-    const data = await API.get('/api/dashboard');
-    if (!data) { main.querySelector('.loading').innerHTML = '<p>Failed to load dashboard.</p>'; return; }
+    const [d, trends] = await Promise.all([
+      API.get('/api/dashboard'),
+      API.get('/api/dashboard/monthly-trends')
+    ]);
+    if (!d) return;
 
-    const d = data;
-    const profit = d.monthProfit || 0;
-    const ytdProfit = d.ytdProfit || 0;
+    const profit = (d.monthIncome || 0) - (d.monthExpenses || 0);
+    const ytdProfit = (d.ytdIncome || 0) - (d.ytdExpenses || 0);
+    const overdue = d.overdueInvoices || { count: 0, total: 0 };
 
-    let html = `<div class="page-header"><h1>Dashboard</h1><span class="page-date">${Utils.formatDate(Utils.today())}</span></div>`;
+    // Build smart alerts
+    const alerts = [];
+    if (overdue.count > 0) {
+      alerts.push({ type: 'red', icon: '⚠️', msg: `${overdue.count} invoice${overdue.count > 1 ? 's' : ''} overdue — ${Utils.formatCurrency(overdue.total)} outstanding`, link: '#/invoices' });
+    }
 
-    // Stat cards
-    html += `<div class="stat-grid">
-      <div class="stat-card green">
-        <div class="stat-label">Month Income</div>
-        <div class="stat-value positive">${Utils.formatCurrency(d.monthIncome || 0)}</div>
+    // Quarterly tax alert — warn 30 days before each due date
+    const taxDates = [
+      { label: 'Q1 estimated tax', date: `${new Date().getFullYear()}-04-15` },
+      { label: 'Q2 estimated tax', date: `${new Date().getFullYear()}-06-16` },
+      { label: 'Q3 estimated tax', date: `${new Date().getFullYear()}-09-15` },
+      { label: 'Q4 estimated tax', date: `${new Date().getFullYear() + 1}-01-15` }
+    ];
+    const today = new Date();
+    for (const t of taxDates) {
+      const due = new Date(t.date);
+      const daysUntil = Math.ceil((due - today) / 86400000);
+      if (daysUntil >= 0 && daysUntil <= 30) {
+        alerts.push({ type: 'amber', icon: '📅', msg: `${t.label} payment due in ${daysUntil} day${daysUntil !== 1 ? 's' : ''} (${t.date})`, link: '#/compliance' });
+      }
+    }
+
+    const alertsHtml = alerts.length > 0 ? `
+      <div class="dashboard-alerts">
+        ${alerts.map(a => `
+          <a href="${a.link}" class="dashboard-alert alert-${a.type}">
+            <span class="alert-icon">${a.icon}</span>
+            <span>${a.msg}</span>
+            <span class="alert-arrow">→</span>
+          </a>`).join('')}
+      </div>` : '';
+
+    let html = `
+      <div class="page-header">
+        <h1>Dashboard</h1>
+        <span class="page-date">${Utils.formatDate(Utils.today())}</span>
       </div>
-      <div class="stat-card red">
-        <div class="stat-label">Month Expenses</div>
-        <div class="stat-value negative">${Utils.formatCurrency(d.monthExpenses || 0)}</div>
+      ${alertsHtml}
+      <div class="stat-grid">
+        <div class="stat-card green">
+          <div class="stat-label">Month Income</div>
+          <div class="stat-value positive">${Utils.formatCurrency(d.monthIncome || 0)}</div>
+        </div>
+        <div class="stat-card red">
+          <div class="stat-label">Month Expenses</div>
+          <div class="stat-value negative">${Utils.formatCurrency(d.monthExpenses || 0)}</div>
+        </div>
+        <div class="stat-card ${profit >= 0 ? 'green' : 'red'}">
+          <div class="stat-label">Month Profit</div>
+          <div class="stat-value ${profit >= 0 ? 'positive' : 'negative'}">${Utils.formatCurrency(profit)}</div>
+        </div>
+        <div class="stat-card ${ytdProfit >= 0 ? 'brand' : 'red'}">
+          <div class="stat-label">YTD Profit</div>
+          <div class="stat-value ${ytdProfit >= 0 ? '' : 'negative'}">${Utils.formatCurrency(ytdProfit)}</div>
+        </div>
       </div>
-      <div class="stat-card ${profit >= 0 ? 'green' : 'red'}">
-        <div class="stat-label">Month Profit</div>
-        <div class="stat-value ${profit >= 0 ? 'positive' : 'negative'}">${Utils.formatCurrency(profit)}</div>
+
+      <div class="dashboard-row">
+        <div class="dashboard-panel dashboard-panel-wide">
+          <div class="panel-header">
+            <h3>Income vs Expenses</h3>
+            <span class="panel-sub">Last 6 months</span>
+          </div>
+          <div class="chart-wrap"><canvas id="chart-monthly"></canvas></div>
+        </div>
+        <div class="dashboard-panel">
+          <div class="panel-header">
+            <h3>Spending by Category</h3>
+            <span class="panel-sub">This month</span>
+          </div>
+          <div class="chart-wrap chart-wrap-donut"><canvas id="chart-categories"></canvas></div>
+          <div id="chart-categories-legend" class="chart-legend"></div>
+        </div>
       </div>
-      <div class="stat-card ${ytdProfit >= 0 ? 'brand' : 'red'}">
-        <div class="stat-label">YTD Profit</div>
-        <div class="stat-value ${ytdProfit >= 0 ? '' : 'negative'}">${Utils.formatCurrency(ytdProfit)}</div>
+
+      <div class="dashboard-row">
+        <div class="dashboard-panel">
+          <div class="panel-header"><h3>Quick Actions</h3></div>
+          <div class="quick-actions">
+            <a href="#/expenses/new" class="quick-action qa-red">
+              <span class="qa-icon">💸</span>
+              <span class="qa-label">Add Expense</span>
+            </a>
+            <a href="#/income/new" class="quick-action qa-green">
+              <span class="qa-icon">💰</span>
+              <span class="qa-label">Record Income</span>
+            </a>
+            <a href="#/invoices/new" class="quick-action qa-blue">
+              <span class="qa-icon">📄</span>
+              <span class="qa-label">New Invoice</span>
+            </a>
+            <a href="#/mileage/new" class="quick-action qa-amber">
+              <span class="qa-icon">🚗</span>
+              <span class="qa-label">Log Trip</span>
+            </a>
+          </div>
+        </div>
+        <div class="dashboard-panel dashboard-panel-wide">
+          <div class="panel-header">
+            <h3>Recent Transactions</h3>
+            <a href="#/expenses" class="panel-link">View all →</a>
+          </div>
+          <div id="dash-transactions">
+            ${(d.recentTransactions || []).length === 0
+              ? '<div class="empty-panel">No transactions yet. Add your first expense to get started.</div>'
+              : (d.recentTransactions || []).slice(0, 8).map(t => `
+                <div class="transaction-row">
+                  <div class="tx-left">
+                    <span class="tx-type-badge ${t.type === 'income' ? 'badge-income' : 'badge-expense'}">${t.type === 'income' ? '↑' : '↓'}</span>
+                    <div class="tx-details">
+                      <span class="tx-desc">${Utils.escapeHtml(t.description || t.vendor || '—')}</span>
+                      <span class="tx-meta">${Utils.formatDate(t.date)}${t.category ? ' · ' + Utils.escapeHtml(t.category) : ''}</span>
+                    </div>
+                  </div>
+                  <span class="tx-amount ${t.type === 'income' ? 'positive' : 'negative'}">${t.type === 'income' ? '+' : '-'}${Utils.formatCurrency(t.amount)}</span>
+                </div>`).join('')}
+          </div>
+        </div>
+      </div>`;
+
+    html += `<div class="dashboard-row">
+      <div class="dashboard-panel">
+        <div class="panel-header">
+          <h3>Business Overview</h3>
+        </div>
+        <div class="overview-stats">
+          <div class="ov-stat">
+            <span class="ov-value">${d.activeJobs || 0}</span>
+            <span class="ov-label">Active Jobs</span>
+          </div>
+          <div class="ov-stat">
+            <span class="ov-value ${overdue.count > 0 ? 'negative' : ''}">${d.outstandingInvoices?.count || 0}</span>
+            <span class="ov-label">Outstanding Invoices</span>
+          </div>
+          <div class="ov-stat">
+            <span class="ov-value">${Utils.formatCurrency(d.outstandingInvoices?.total || 0)}</span>
+            <span class="ov-label">Total Outstanding</span>
+          </div>
+        </div>
       </div>
     </div>`;
-
-    // Smaller info cards
-    html += `<div class="info-row">
-      <div class="info-card"><span class="info-number">${d.activeJobs || 0}</span><span class="info-label">Active Jobs</span></div>
-      <div class="info-card"><span class="info-number">${d.outstandingInvoices ? d.outstandingInvoices.count : 0}</span><span class="info-label">Outstanding Invoices${d.outstandingInvoices && d.outstandingInvoices.total ? ' (' + Utils.formatCurrency(d.outstandingInvoices.total) + ')' : ''}</span></div>
-    </div>`;
-
-    // Recent transactions
-    html += `<div class="card"><div class="card-header"><h2>Recent Transactions</h2></div><div class="card-body">`;
-    if (d.recentTransactions && d.recentTransactions.length) {
-      html += '<ul class="transaction-list">';
-      d.recentTransactions.forEach(tx => {
-        const isExpense = tx.type === 'expense';
-        const amtClass = isExpense ? 'expense' : 'income';
-        const sign = isExpense ? '-' : '+';
-        const href = isExpense ? `#/expenses/${tx.id}` : `#/income/${tx.id}`;
-        html += `<li class="transaction-item">
-          <a href="${href}" class="transaction-link">
-            <div class="transaction-info">
-              <span class="transaction-desc">${Utils.escapeHtml(tx.vendor || tx.description || tx.client_name || 'Untitled')}</span>
-              <span class="transaction-meta">${Utils.formatDate(tx.date)}${tx.job_name ? ' &middot; ' + Utils.escapeHtml(tx.job_name) : ''}</span>
-            </div>
-            <span class="transaction-amount ${amtClass}">${sign}${Utils.formatCurrency(Math.abs(tx.amount))}</span>
-          </a>
-        </li>`;
-      });
-      html += '</ul>';
-    } else {
-      html += '<p class="muted">No transactions yet.</p>';
-    }
-    html += '</div></div>';
-
-    // Expense breakdown
-    if (d.expensesByCategory && d.expensesByCategory.length) {
-      const maxAmt = Math.max(...d.expensesByCategory.map(c => c.total));
-      html += `<div class="card"><div class="card-header"><h2>Expense Breakdown</h2></div><div class="card-body">`;
-      d.expensesByCategory.forEach(cat => {
-        const pct = maxAmt > 0 ? (cat.total / maxAmt) * 100 : 0;
-        html += `<div class="bar-row">
-          <span class="bar-label">${Utils.escapeHtml(cat.category || cat.name || 'Other')}</span>
-          <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
-          <span class="bar-value">${Utils.formatCurrency(cat.total)}</span>
-        </div>`;
-      });
-      html += '</div></div>';
-    }
 
     main.innerHTML = html;
+
+    // Render monthly bar chart
+    if (trends && trends.length > 0 && window.Chart) {
+      const ctx = document.getElementById('chart-monthly');
+      if (ctx) {
+        new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: trends.map(t => t.label),
+            datasets: [
+              {
+                label: 'Income',
+                data: trends.map(t => t.income),
+                backgroundColor: 'rgba(22,163,74,0.8)',
+                borderRadius: 4,
+                borderSkipped: false,
+              },
+              {
+                label: 'Expenses',
+                data: trends.map(t => t.expenses),
+                backgroundColor: 'rgba(220,38,38,0.75)',
+                borderRadius: 4,
+                borderSkipped: false,
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { position: 'top', labels: { font: { family: 'Inter', size: 12 }, boxWidth: 12, padding: 16 } },
+              tooltip: { callbacks: { label: ctx => ' ' + Utils.formatCurrency(ctx.raw) } }
+            },
+            scales: {
+              x: { grid: { display: false }, ticks: { font: { family: 'Inter', size: 12 } } },
+              y: { grid: { color: '#F1F5F9' }, ticks: { callback: v => '$' + (v >= 1000 ? (v/1000).toFixed(0)+'k' : v), font: { family: 'Inter', size: 11 } } }
+            }
+          }
+        });
+      }
+    }
+
+    // Render category donut chart
+    const cats = d.expensesByCategory || [];
+    if (cats.length > 0 && window.Chart) {
+      const ctx2 = document.getElementById('chart-categories');
+      const CHART_COLORS = ['#2563EB','#16A34A','#DC2626','#D97706','#7C3AED','#0891B2','#DB2777','#059669','#EA580C','#4F46E5'];
+      if (ctx2) {
+        new Chart(ctx2, {
+          type: 'doughnut',
+          data: {
+            labels: cats.map(c => c.category || 'Uncategorized'),
+            datasets: [{
+              data: cats.map(c => c.total),
+              backgroundColor: cats.map((_, i) => CHART_COLORS[i % CHART_COLORS.length]),
+              borderWidth: 2,
+              borderColor: '#ffffff',
+              hoverOffset: 6
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '65%',
+            plugins: {
+              legend: { display: false },
+              tooltip: { callbacks: { label: ctx => ' ' + Utils.formatCurrency(ctx.raw) } }
+            }
+          }
+        });
+
+        // Custom legend
+        const legend = document.getElementById('chart-categories-legend');
+        if (legend) {
+          const total = cats.reduce((s, c) => s + c.total, 0);
+          legend.innerHTML = cats.slice(0, 6).map((c, i) => `
+            <div class="legend-item">
+              <span class="legend-dot" style="background:${CHART_COLORS[i % CHART_COLORS.length]}"></span>
+              <span class="legend-name">${Utils.escapeHtml(c.category || 'Other')}</span>
+              <span class="legend-pct">${total > 0 ? Math.round(c.total / total * 100) : 0}%</span>
+            </div>`).join('');
+        }
+      }
+    } else if (cats.length === 0) {
+      const ctx2 = document.getElementById('chart-categories');
+      if (ctx2) {
+        const parent = ctx2.closest('.chart-wrap');
+        if (parent) parent.innerHTML = '<div class="empty-panel" style="padding:40px 0">No expenses this month</div>';
+      }
+    }
   }
 
   return { render };
@@ -1694,6 +1861,7 @@ const Reports = (() => {
   ];
 
   let activeReport = null;
+  let reportChartInstance = null;
 
   async function render() {
     activeReport = null;
@@ -1770,7 +1938,12 @@ const Reports = (() => {
     const data = await API.get(url);
     if (!data) { results.innerHTML = '<p class="muted">Failed to generate report.</p>'; return; }
 
-    let html = '<div class="card" style="margin-top:1rem;"><div class="card-body report-table-wrap">';
+    const charted = ['profit-loss', 'expenses-by-category', 'job-profitability'];
+    let html = '<div class="card" style="margin-top:1rem;">';
+    if (charted.includes(activeReport)) {
+      html += '<div class="report-chart-wrap"><canvas id="report-chart" height="300"></canvas></div>';
+    }
+    html += '<div class="card-body report-table-wrap">';
     html += renderReportTable(activeReport, data);
     html += '</div><div class="form-actions">';
     // Export buttons
@@ -1781,6 +1954,7 @@ const Reports = (() => {
     html += '</div></div>';
 
     results.innerHTML = html;
+    renderReportChart(activeReport, data);
   }
 
   function renderReportTable(key, data) {
@@ -1868,6 +2042,88 @@ const Reports = (() => {
     }
 
     return '<p class="muted">No data for this period.</p>';
+  }
+
+  function renderReportChart(key, data) {
+    if (!window.Chart) return;
+    if (reportChartInstance) { reportChartInstance.destroy(); reportChartInstance = null; }
+
+    const canvas = document.getElementById('report-chart');
+    if (!canvas) return;
+
+    const rows = Array.isArray(data) ? data : (data.rows || data.items || data.data || []);
+
+    if (key === 'profit-loss') {
+      const d = Array.isArray(data) ? {} : data;
+      const incomeRows = d.income || d.income_categories || rows.filter(r => r.type === 'income');
+      const expenseRows = d.expenses || d.expense_categories || rows.filter(r => r.type === 'expense');
+      const labels = [
+        ...incomeRows.map(c => c.name || c.category),
+        ...expenseRows.map(c => c.name || c.category)
+      ];
+      const incomeVals = [
+        ...incomeRows.map(c => c.total || c.amount || 0),
+        ...expenseRows.map(() => 0)
+      ];
+      const expenseVals = [
+        ...incomeRows.map(() => 0),
+        ...expenseRows.map(c => c.total || c.amount || 0)
+      ];
+      canvas.style.height = '400px';
+      reportChartInstance = new Chart(canvas, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [
+            { label: 'Income',   data: incomeVals,  backgroundColor: '#16A34A', borderRadius: 4 },
+            { label: 'Expenses', data: expenseVals, backgroundColor: '#DC2626', borderRadius: 4 }
+          ]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          plugins: { legend: { position: 'top' } },
+          scales: { x: { beginAtZero: true, ticks: { callback: v => '$' + v.toLocaleString() } } }
+        }
+      });
+    } else if (key === 'expenses-by-category') {
+      const palette = ['#2563EB','#16A34A','#DC2626','#D97706','#7C3AED','#0891B2','#DB2777','#65A30D','#EA580C','#0284C7'];
+      const labels = rows.map(r => r.name || r.category);
+      const values = rows.map(r => r.total || r.amount || 0);
+      reportChartInstance = new Chart(canvas, {
+        type: 'doughnut',
+        data: {
+          labels,
+          datasets: [{ data: values, backgroundColor: palette.slice(0, labels.length), borderWidth: 2, borderColor: '#fff' }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { position: 'bottom' },
+            tooltip: { callbacks: { label: ctx => ' $' + (ctx.parsed || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) } }
+          }
+        }
+      });
+    } else if (key === 'job-profitability') {
+      const labels = rows.map(r => r.name || r.job_name);
+      const incomeVals  = rows.map(r => r.income   || 0);
+      const expenseVals = rows.map(r => r.expenses || 0);
+      reportChartInstance = new Chart(canvas, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [
+            { label: 'Income',   data: incomeVals,  backgroundColor: '#16A34A', borderRadius: 4 },
+            { label: 'Expenses', data: expenseVals, backgroundColor: '#DC2626', borderRadius: 4 }
+          ]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { position: 'top' } },
+          scales: { y: { beginAtZero: true, ticks: { callback: v => '$' + v.toLocaleString() } } }
+        }
+      });
+    }
   }
 
   return { render };

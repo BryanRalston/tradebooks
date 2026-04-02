@@ -164,6 +164,12 @@ function generateInvoice(invoiceData, items, settings, client) {
     drawWatermark(doc, 'DRAFT', COLORS.muted);
   }
 
+  // ── Left accent stripe (drawn under all content) ──
+  doc.rect(0, 0, 6, PAGE_HEIGHT).fill(COLORS.primary);
+
+  // ── Header background band ──
+  doc.rect(0, 0, PAGE_WIDTH, 110).fill('#F8FAFC');
+
   // ── Header: Business Info (left) + Invoice Label (right) ──
   let y = MARGIN;
 

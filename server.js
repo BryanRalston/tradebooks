@@ -22,7 +22,7 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
       styleSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: ["'self'", "data:", "blob:"],
       connectSrc: ["'self'"],
@@ -1866,6 +1866,10 @@ app.get('/api/dashboard', async (req, res) => {
       `SELECT COUNT(*) as count, COALESCE(SUM(total), 0) as total
        FROM invoices WHERE status IN ('draft', 'sent', 'overdue')`
     );
+    const overdueInvoices = db.prepare(
+      `SELECT COUNT(*) as count, COALESCE(SUM(total),0) as total
+       FROM invoices WHERE status IN ('sent') AND due_date < date('now')`
+    ).get();
 
     // Recent transactions: last 10 mixed income + expenses
     const recentExpenses = await all(
@@ -1902,11 +1906,42 @@ app.get('/api/dashboard', async (req, res) => {
       ytdProfit: ytdIncome.total - ytdExpenses.total,
       activeJobs: activeJobs.count,
       outstandingInvoices: { count: outstanding.count, total: outstanding.total },
+      overdueInvoices: { count: overdueInvoices.count, total: overdueInvoices.total },
       recentTransactions,
       expensesByCategory
     });
   } catch (err) {
     console.error('GET /api/dashboard error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/dashboard/monthly-trends', (req, res) => {
+  try {
+    const months = [];
+    const now = new Date();
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const from = `${year}-${month}-01`;
+      const lastDay = new Date(year, d.getMonth() + 1, 0).getDate();
+      const to = `${year}-${month}-${String(lastDay).padStart(2, '0')}`;
+      const label = d.toLocaleString('en-US', { month: 'short', year: '2-digit' });
+
+      const income = db.prepare(`SELECT COALESCE(SUM(amount),0) as total FROM income WHERE date >= ? AND date <= ?`).get(from, to);
+      const expenses = db.prepare(`SELECT COALESCE(SUM(amount),0) as total FROM expenses WHERE date >= ? AND date <= ?`).get(from, to);
+
+      months.push({
+        label,
+        income: income.total || 0,
+        expenses: expenses.total || 0,
+        profit: (income.total || 0) - (expenses.total || 0)
+      });
+    }
+    res.json(months);
+  } catch (err) {
+    console.error('GET /api/dashboard/monthly-trends error:', err);
     res.status(500).json({ error: err.message });
   }
 });
