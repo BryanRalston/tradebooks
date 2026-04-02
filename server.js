@@ -117,6 +117,8 @@ app.post('/api/auth/logout', (req, res) => {
   });
 });
 
+app.get('/api/status', (req, res) => res.json({ status: 'ok' }));
+
 app.get('/api/auth/status', (req, res) => {
   res.json({
     authenticated: !!req.session?.authenticated,
