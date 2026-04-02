@@ -246,21 +246,21 @@ const Dashboard = (() => {
 
     // Stat cards
     html += `<div class="stat-grid">
-      <div class="stat-card">
+      <div class="stat-card green">
         <div class="stat-label">Month Income</div>
-        <div class="stat-value income">${Utils.formatCurrency(d.monthIncome || 0)}</div>
+        <div class="stat-value positive">${Utils.formatCurrency(d.monthIncome || 0)}</div>
       </div>
-      <div class="stat-card">
+      <div class="stat-card red">
         <div class="stat-label">Month Expenses</div>
-        <div class="stat-value expense">${Utils.formatCurrency(d.monthExpenses || 0)}</div>
+        <div class="stat-value negative">${Utils.formatCurrency(d.monthExpenses || 0)}</div>
       </div>
-      <div class="stat-card">
+      <div class="stat-card ${profit >= 0 ? 'green' : 'red'}">
         <div class="stat-label">Month Profit</div>
-        <div class="stat-value ${profit >= 0 ? 'income' : 'expense'}">${Utils.formatCurrency(profit)}</div>
+        <div class="stat-value ${profit >= 0 ? 'positive' : 'negative'}">${Utils.formatCurrency(profit)}</div>
       </div>
-      <div class="stat-card">
+      <div class="stat-card ${ytdProfit >= 0 ? 'brand' : 'red'}">
         <div class="stat-label">YTD Profit</div>
-        <div class="stat-value ${ytdProfit >= 0 ? 'income' : 'expense'}">${Utils.formatCurrency(ytdProfit)}</div>
+        <div class="stat-value ${ytdProfit >= 0 ? '' : 'negative'}">${Utils.formatCurrency(ytdProfit)}</div>
       </div>
     </div>`;
 

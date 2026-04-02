@@ -5,114 +5,162 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="X-Content-Type-Options" content="nosniff">
   <meta http-equiv="X-Frame-Options" content="DENY">
-  <title>Sign In — TradeBooks</title>
-  <link rel="stylesheet" href="/styles.css">
+  <title>TradeBooks — Sign In</title>
+  <link rel="manifest" href="/manifest.json">
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📒</text></svg>">
   <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
     body {
-      background: var(--bg-page);
+      font-family: 'Inter', -apple-system, sans-serif;
+      background: #0F172A;
+      min-height: 100vh;
       display: flex;
       align-items: center;
       justify-content: center;
-      min-height: 100vh;
-      margin: 0;
-      padding: 1rem;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .login-wrap {
+      width: 100%;
+      max-width: 420px;
+      padding: 24px;
     }
 
     .login-card {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-lg);
-      box-shadow: var(--shadow-lg);
-      padding: 2.5rem 2rem;
-      width: 100%;
-      max-width: 400px;
+      background: white;
+      border-radius: 20px;
+      padding: 40px 40px 36px;
+      box-shadow: 0 25px 60px rgba(0,0,0,0.4), 0 8px 20px rgba(0,0,0,0.2);
     }
 
     .login-brand {
       display: flex;
       align-items: center;
-      justify-content: center;
-      gap: 0.75rem;
-      margin-bottom: 2rem;
+      gap: 12px;
+      margin-bottom: 32px;
     }
 
-    .login-brand svg {
-      color: var(--brand);
-    }
-
-    .login-brand h1 {
-      font-size: 1.5rem;
-      font-weight: 700;
-      color: var(--text-primary);
-      margin: 0;
-    }
-
-    .login-form {
+    .login-brand-icon {
+      width: 44px;
+      height: 44px;
+      background: #2563EB;
+      border-radius: 12px;
       display: flex;
-      flex-direction: column;
-      gap: 1.25rem;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      box-shadow: 0 4px 12px rgba(37,99,235,0.4);
     }
 
-    .login-form label {
-      font-size: 0.875rem;
-      font-weight: 500;
-      color: var(--text-secondary);
-      margin-bottom: 0.25rem;
-      display: block;
+    .login-brand-text h1 {
+      font-size: 20px;
+      font-weight: 700;
+      color: #0F172A;
+      letter-spacing: -0.02em;
     }
 
-    .login-form input[type="password"] {
-      width: 100%;
-      padding: 0.75rem 1rem;
-      font-size: 1rem;
-      border: 1px solid var(--border);
-      border-radius: var(--radius-md);
-      background: var(--bg-input);
-      color: var(--text-primary);
-      outline: none;
-      transition: border-color 0.2s;
+    .login-brand-text p {
+      font-size: 12px;
+      color: #94A3B8;
+      margin-top: 1px;
     }
 
-    .login-form input[type="password"]:focus {
-      border-color: var(--border-focus);
-      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
-    }
-
-    .login-btn {
-      width: 100%;
-      padding: 0.75rem;
-      font-size: 1rem;
+    .login-title {
+      font-size: 17px;
       font-weight: 600;
-      color: #fff;
-      background: var(--brand);
-      border: none;
-      border-radius: var(--radius-md);
-      cursor: pointer;
-      transition: background 0.2s;
+      color: #0F172A;
+      margin-bottom: 6px;
     }
 
-    .login-btn:hover {
-      background: var(--brand-dark);
+    .login-sub {
+      font-size: 13px;
+      color: #64748B;
+      margin-bottom: 24px;
     }
 
-    .login-btn:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: #475569;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 6px;
+    }
+
+    input[type="password"], input[type="text"] {
+      display: block;
+      width: 100%;
+      padding: 11px 14px;
+      font-size: 14px;
+      font-family: inherit;
+      color: #0F172A;
+      background: #F8FAFC;
+      border: 1.5px solid #E2E8F0;
+      border-radius: 8px;
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+    input:focus {
+      border-color: #2563EB;
+      box-shadow: 0 0 0 3px rgba(37,99,235,0.12);
+      background: white;
     }
 
     .login-error {
       display: none;
-      background: var(--red-light);
-      color: var(--red);
-      padding: 0.75rem 1rem;
-      border-radius: var(--radius-sm);
-      font-size: 0.875rem;
-      text-align: center;
+      color: #DC2626;
+      font-size: 13px;
+      font-weight: 500;
+      margin-top: 8px;
     }
 
     .login-error.visible {
       display: block;
+    }
+
+    .btn-signin {
+      display: block;
+      width: 100%;
+      padding: 12px;
+      margin-top: 20px;
+      background: #2563EB;
+      color: white;
+      font-size: 14px;
+      font-weight: 600;
+      font-family: inherit;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.15s, box-shadow 0.15s;
+      box-shadow: 0 2px 8px rgba(37,99,235,0.35);
+    }
+
+    .btn-signin:hover {
+      background: #1D4ED8;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 16px rgba(37,99,235,0.4);
+    }
+
+    .btn-signin:active {
+      transform: translateY(0);
+    }
+
+    .btn-signin:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .login-footer {
+      text-align: center;
+      margin-top: 20px;
+      font-size: 12px;
+      color: #94A3B8;
     }
 
     @keyframes shake {
@@ -124,29 +172,32 @@
     .login-error.shake {
       animation: shake 0.4s ease-in-out;
     }
+
+    @media (max-width: 480px) {
+      .login-card { padding: 32px 24px 28px; border-radius: 16px; }
+    }
   </style>
 </head>
 <body>
-  <div class="login-card">
-    <div class="login-brand">
-      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
-        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
-        <line x1="8" y1="7" x2="16" y2="7"/>
-        <line x1="8" y1="11" x2="14" y2="11"/>
-      </svg>
-      <h1>TradeBooks</h1>
-    </div>
-
-    <div class="login-error" id="login-error">Incorrect password</div>
-
-    <form class="login-form" id="login-form">
-      <div>
-        <label for="password">Password</label>
-        <input type="password" id="password" name="password" autocomplete="current-password" required autofocus>
+  <div class="login-wrap">
+    <div class="login-card">
+      <div class="login-brand">
+        <div class="login-brand-icon">📒</div>
+        <div class="login-brand-text">
+          <h1>TradeBooks</h1>
+          <p>Contractor Bookkeeping</p>
+        </div>
       </div>
-      <button type="submit" class="login-btn" id="login-btn">Sign In</button>
-    </form>
+      <p class="login-title">Welcome back</p>
+      <p class="login-sub">Sign in to your account to continue.</p>
+      <form id="login-form">
+        <label for="password">Password</label>
+        <input type="password" id="password" name="password" autocomplete="current-password" autofocus placeholder="Enter your password">
+        <div class="login-error" id="login-error">Incorrect password. Please try again.</div>
+        <button type="submit" class="btn-signin" id="login-btn">Sign In</button>
+      </form>
+      <p class="login-footer">TradeBooks — Built for contractors</p>
+    </div>
   </div>
 
   <script>
