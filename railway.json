@@ -1,0 +1,11 @@
+{
+  "$schema": "https://railway.app/railway.schema.json",
+  "build": {
+    "builder": "NIXPACKS"
+  },
+  "deploy": {
+    "startCommand": "TRADEBOOKS_HOST=0.0.0.0 node server.js",
+    "healthcheckPath": "/api/status",
+    "restartPolicyType": "ON_FAILURE"
+  }
+}

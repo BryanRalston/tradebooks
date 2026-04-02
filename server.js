@@ -12,7 +12,7 @@ const pdf = require('./pdf');
 const { SQLiteStore, isPasswordSet, setPassword, checkPassword } = require('./auth');
 
 const app = express();
-const PORT = 3143;
+const PORT = process.env.PORT || 3143;
 
 // ---------------------------------------------------------------------------
 // Security — Helmet
